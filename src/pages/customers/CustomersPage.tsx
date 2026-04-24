@@ -1,38 +1,62 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Plus, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { customerService } from '../../services/customer.service';
-import { Customer, CustomerRequest } from '../../types/customer';
+import { Customer } from '../../types/customer';
 import { CustomerFilters } from './components/CustomerFilters';
 import { CustomerList } from './components/CustomerList';
-import { CustomerModal } from './components/CustomerModal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { syncEngine } from '../../lib/syncCore';
+import { SyncScope, CUSTOMER_FIELD_POLICY } from '../../types/sync';
+import { useScrollRestoration } from '../../hooks/useScrollRestoration';
 
 export function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null); // ID del cliente a eliminar
+  const [syncing, setSyncing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  
+  const navigate = useNavigate();
+  useScrollRestoration();
   
   // Estados de Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
 
-  useEffect(() => {
-    loadCustomers();
-  }, []);
+  const currentScope: SyncScope = (searchTerm || statusFilter !== 'ALL') ? 'customers:search' : 'customers:list';
 
-  const loadCustomers = async () => {
+  const loadCustomers = async (signal?: AbortSignal, isInitial = true) => {
+    if (isInitial) setLoading(true);
+    else setSyncing(true);
+
+    const version = syncEngine.generateVersion(currentScope);
+
     try {
-      setLoading(true);
-      const data = await customerService.getAll();
-      setCustomers(data);
-    } catch (error) {
+      const data = await customerService.getAll(signal);
+      
+      if (!syncEngine.isVersionValid(currentScope, version)) return;
+
+      if (isInitial) {
+        setCustomers(data);
+      } else {
+        setCustomers(prev => syncEngine.mergeCollections(prev, data, CUSTOMER_FIELD_POLICY));
+      }
+    } catch (error: any) {
+      if (error.name === 'CanceledError' || error.name === 'AbortError') return;
       console.error('Error cargando clientes:', error);
     } finally {
-      setLoading(false);
+      if (syncEngine.isVersionValid(currentScope, version)) {
+        if (isInitial) setLoading(false);
+        else setSyncing(false);
+      }
     }
   };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadCustomers(controller.signal, true);
+    return () => controller.abort();
+  }, []);
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(c => {
@@ -50,13 +74,11 @@ export function CustomersPage() {
   }, [customers, searchTerm, statusFilter]);
 
   const handleCreate = () => {
-    setSelectedCustomer(null);
-    setIsModalOpen(true);
+    navigate('/customers/new');
   };
 
   const handleEdit = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setIsModalOpen(true);
+    navigate(`/customers/${customer.id}`);
   };
 
   const handleDelete = (id: string) => {
@@ -67,26 +89,13 @@ export function CustomersPage() {
     if (!confirmDelete) return;
     try {
       await customerService.delete(confirmDelete);
-      setCustomers(customers.filter(c => c.id !== confirmDelete));
+      // Tras eliminar, actualizamos el estado sin re-petición si es seguro,
+      // o invocamos un refetch en background
+      setCustomers(prev => prev.filter(c => c.id !== confirmDelete));
     } catch (error) {
       alert('Error al eliminar el cliente');
     } finally {
       setConfirmDelete(null);
-    }
-  };
-
-  const handleSave = async (data: CustomerRequest) => {
-    try {
-      if (selectedCustomer) {
-        const updated = await customerService.update(selectedCustomer.id, data);
-        setCustomers(customers.map(c => c.id === updated.id ? updated : c));
-      } else {
-        const created = await customerService.create(data);
-        setCustomers([created, ...customers]);
-      }
-      setIsModalOpen(false);
-    } catch (error: any) {
-      alert(error.response?.data?.message || 'Error al guardar el cliente');
     }
   };
 
@@ -102,8 +111,15 @@ export function CustomersPage() {
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Gestión de Clientes</h1>
             <div className="flex items-center gap-2 text-slate-500 text-sm">
               <span>{customers.length} clientes en total</span>
-              <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-              <span>{customers.filter(c => c.active).length} activos</span>
+              {syncing && (
+                <>
+                  <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                  <div className="flex items-center gap-2 animate-in fade-in duration-300">
+                    <div className="w-1.5 h-1.5 bg-primary-400 rounded-full animate-bounce"></div>
+                    <span className="text-[10px] font-black text-primary-400 uppercase tracking-widest">Sincronizando</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -136,14 +152,6 @@ export function CustomersPage() {
           onDelete={handleDelete}
         />
       )}
-
-      {/* Modal de Creación / Edición */}
-      <CustomerModal 
-        isOpen={isModalOpen}
-        customer={selectedCustomer}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSave}
-      />
 
       {/* Diálogo de Confirmación de Eliminación */}
       <ConfirmDialog

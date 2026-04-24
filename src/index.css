@@ -30,11 +30,49 @@
 
 @layer utilities {
   .glass {
-    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl;
+    background-color: rgb(255 255 255 / 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    @apply border border-white/20 shadow-xl;
   }
   
   .glass-dark {
-    @apply bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 shadow-2xl;
+    background-color: rgb(15 23 42 / 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    @apply border border-slate-700/50 shadow-2xl;
+  }
+
+  .min-h-dynamic {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  
+  .h-dynamic {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* iOS-safe scroll lock pattern */
+body.no-scroll {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .glass, .glass-dark {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 }
 

@@ -1,10 +1,36 @@
-import { Outlet, useNavigate, NavLink } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
+import { Drawer } from 'vaul';
 import { useAuthStore } from '../../store/authStore';
-import { LogOut, LayoutDashboard, Users, PackageOpen, Boxes, FileText } from 'lucide-react';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useScrollRestoration } from '../../hooks/useScrollRestoration';
+import { 
+  LogOut, 
+  LayoutDashboard, 
+  UserCheck, 
+  PackageOpen, 
+  Boxes, 
+  FileText, 
+  Users as TeamIcon, 
+  Building2, 
+  Menu,
+  X
+} from 'lucide-react';
 
 export function AppLayout() {
   const { logout, email, role, tenantId } = useAuthStore();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Activar restauración de scroll global
+  useScrollRestoration();
+
+  // Cerrar menú automáticamente al cambiar de ruta o al pasar a desktop
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname, isDesktop]);
 
   const handleLogout = () => {
     logout();
@@ -13,66 +39,112 @@ export function AppLayout() {
 
   const menu = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { name: 'Clientes', icon: Users, path: '/customers' },
+    { name: 'Clientes', icon: UserCheck, path: '/customers' },
     { name: 'Catálogo', icon: PackageOpen, path: '/catalog' },
     { name: 'Inventario', icon: Boxes, path: '/inventory' },
     { name: 'Órdenes', icon: FileText, path: '/orders' },
+    { name: 'Equipo', icon: TeamIcon, path: '/users' },
   ];
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidebar (Elitista con Transparencias) */}
-      <aside className="w-64 glass fixed inset-y-0 left-0 z-40 border-r border-slate-200/50 hidden lg:flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-slate-100/50">
-          <span className="font-bold text-xl text-slate-800 tracking-tight">Applitex</span>
-          <span className="ml-2 text-xs font-semibold px-2 py-1 bg-primary-100 text-primary-700 rounded-full">
-            {tenantId?.toUpperCase()}
-          </span>
-        </div>
-        
-        <nav className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
-          {menu.map((item) => (
-            <NavLink 
-              key={item.name} 
-              to={item.path}
-              className={({ isActive }) => `
-                w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200
-                ${isActive 
-                  ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' 
-                  : 'text-slate-600 hover:bg-slate-100/50 hover:text-slate-900'}
-              `}
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium text-sm">{item.name}</span>
-            </NavLink>
-          ))}
-        </nav>
+  if (tenantId === 'master' && role === 'ROLE_SUPER_ADMIN') {
+    menu.push({ name: 'Empresas', icon: Building2, path: '/tenants' });
+  }
 
-        <div className="p-4 border-t border-slate-100/50">
-          <div className="mb-4 px-4 text-xs font-medium text-slate-500 truncate">
-            {email} ({role})
-          </div>
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900 border-r border-slate-200/50">
+      <div className="h-16 flex items-center px-6 border-b border-slate-100/50 shrink-0">
+        <span className="font-bold text-xl text-slate-800 dark:text-white tracking-tight">Applitex</span>
+        <span className="ml-2 text-[10px] font-black px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100 uppercase">
+          {tenantId}
+        </span>
+      </div>
+      
+      <nav className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
+        {menu.map((item) => (
+          <NavLink 
+            key={item.name} 
+            to={item.path}
+            className={({ isActive }) => `
+              w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all duration-300
+              ${isActive 
+                ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200 dark:shadow-none' 
+                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}
+            `}
           >
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium text-sm">Cerrar Sesión</span>
-          </button>
+            <item.icon className="w-5 h-5" />
+            <span className="font-bold text-sm tracking-tight">{item.name}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="p-6 border-t border-slate-100/50 shrink-0 space-y-4">
+        <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Usuario</p>
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{email}</p>
         </div>
+        <button 
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-700 transition-all active:scale-95 group"
+        >
+          <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          <span className="font-bold text-sm">Cerrar Sesión</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-dynamic bg-slate-50 dark:bg-slate-950 flex flex-col lg:flex-row font-serif">
+      
+      {/* Mobile Drawer (vía Vaul) */}
+      <Drawer.Root open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen} direction="left">
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-40 animate-in fade-in duration-300" />
+          <Drawer.Content className="fixed bottom-0 left-0 top-0 w-[280px] z-50 outline-none flex">
+            {/* El Drawer gestiona su propio Safe Area para ser independiente */}
+            <div className="flex-1 h-full shadow-2xl animate-in slide-in-from-left duration-300 pb-safe pt-safe overflow-y-auto">
+              <SidebarContent />
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
+
+      {/* Desktop Sidebar (Persistent) */}
+      <aside className="w-72 hidden lg:block fixed inset-y-0 left-0 z-20">
+        <SidebarContent />
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 lg:pl-64 flex flex-col min-h-screen">
-        <header className="h-16 glass sticky top-0 z-30 border-b border-slate-200/50 flex items-center px-6 lg:px-8">
-          {/* Top Bar para Mobile o Breadcrumbs */}
-          <div className="text-slate-800 font-semibold">Consola Administrativa</div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-72">
+        
+        {/* Responsive Header */}
+        <header className="h-16 h-dynamic max-h-16 glass dark:glass-dark sticky top-0 z-30 border-b border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between px-6 lg:px-10">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden p-3 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl active:scale-95 transition-all"
+              aria-label="Abrir menú"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] leading-none mb-1">Sistema</span>
+              <span className="text-base lg:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none">Cómputo Administrativo</span>
+            </div>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-3">
+             <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                <LayoutDashboard className="w-5 h-5 text-slate-400" />
+             </div>
+          </div>
         </header>
 
-        <div className="flex-1 p-6 lg:p-8">
+        {/* Contenedor de Contenido con Safe Area único */}
+        <main className="flex-1 p-4 md:p-8 lg:p-10 max-w-7xl mx-auto w-full pb-safe">
           <Outlet />
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

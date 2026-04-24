@@ -8,8 +8,7 @@ import { ServiceOrder, OrderStatus } from '../../../types/orders';
 
 interface OrdersTableProps {
   orders: ServiceOrder[];
-  onView: (order: ServiceOrder) => void;
-  onEdit: (order: ServiceOrder) => void;
+  onSelect: (order: ServiceOrder) => void;
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: OrderStatus) => void;
 }
@@ -23,7 +22,7 @@ const statusConfig: Record<OrderStatus, { label: string; color: string; icon: an
 };
 
 const OrdersTable: React.FC<OrdersTableProps> = ({ 
-  orders, onView, onEdit, onDelete, onStatusChange 
+  orders, onSelect, onDelete, onStatusChange 
 }) => {
   return (
     <div className="overflow-x-auto">
@@ -45,7 +44,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
             return (
               <tr 
                 key={order.id} 
-                onClick={() => onView(order)}
+                onClick={() => onSelect(order)}
                 className="group bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
               >
                 {/* Order Number */}
@@ -112,7 +111,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button 
-                      onClick={() => onEdit(order)}
+                      onClick={() => onSelect(order)}
                       className="p-2 hover:bg-amber-50 dark:hover:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl transition-all"
                       title="Editar"
                     >
@@ -120,7 +119,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     </button>
                     <button 
                       onClick={() => onDelete(order.id)}
-                      className="p-2 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-rose-500 rounded-xl transition-all"
+                      className="px-2 py-2 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-500 rounded-xl transition-all"
                       title="Eliminar"
                     >
                       <Trash2 className="w-5 h-5" />

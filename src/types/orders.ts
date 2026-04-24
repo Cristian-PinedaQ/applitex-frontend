@@ -1,4 +1,4 @@
-export type OrderStatus = 'CREATED' | 'IN_PROGRESS' | 'COMPLETED' | 'DELIVERED' | 'CANCELLED';
+export type OrderStatus = 'DRAFT' | 'CREATED' | 'IN_PROGRESS' | 'COMPLETED' | 'DELIVERED' | 'CANCELLED';
 
 export interface ServiceOrderDetailAttribute {
   id?: string;
@@ -8,6 +8,7 @@ export interface ServiceOrderDetailAttribute {
 
 export interface ServiceOrderDetail {
   id: string;
+  clientId?: string;
   categoryId: string;
   categoryName: string;
   productId: string;
@@ -32,9 +33,12 @@ export interface ServiceOrder {
   updatedAt: string;
   createdBy: string;
   updatedBy: string;
+  version: number;
 }
 
 export interface ServiceOrderDetailRequest {
+  id?: string;
+  clientId?: string;
   categoryId: string;
   productId: string;
   inventoryItemId?: string;
@@ -50,4 +54,5 @@ export interface ServiceOrderDetailRequest {
 export interface ServiceOrderRequest {
   customerId: string;
   details: ServiceOrderDetailRequest[];
+  version?: number;
 }

@@ -1,70 +1,64 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import useSWR from 'swr';
 import { 
-  Plus, Search, Filter, SlidersHorizontal, 
-  Calendar as CalendarIcon, Loader2, RefreshCw,
-  ShoppingBag, CheckCircle2, Clock, AlertCircle
+  Plus, Search, Calendar as CalendarIcon, Loader2, RefreshCw,
+  ShoppingBag, Clock, AlertCircle
 } from 'lucide-react';
 import { ordersService } from '../../services/orders.service';
-import { ServiceOrder, OrderStatus } from '../../types/orders';
+import { customerService } from '../../services/customer.service';
+import { OrderStatus, ServiceOrder } from '../../types/orders';
 import OrdersTable from './components/OrdersTable';
-import OrderFormModal from './components/OrderFormModal';
-import OrderDetailModal from './components/OrderDetailModal';
+import { CustomerSelectModal } from './components/CustomerSelectModal';
+import { toast } from 'react-hot-toast';
 
 const OrdersPage: React.FC = () => {
-  const [orders, setOrders] = useState<ServiceOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | undefined>(undefined);
-  const [viewOrder, setViewOrder] = useState<ServiceOrder | undefined>(undefined);
-
+  const navigate = useNavigate();
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
+  
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const loadOrders = async () => {
-    setLoading(true);
-    setError(null);
+  // SWR Fetching
+  const { data: orders, error: ordersError, isLoading, mutate: mutateOrders } = useSWR(
+    'orders',
+    () => ordersService.getAll()
+  );
+
+  const { data: customers } = useSWR(
+    isCustomerModalOpen ? 'customers' : null,
+    () => customerService.getAll()
+  );
+
+  const handleCreateDraft = async (customerId: string) => {
+    setIsCreatingDraft(true);
     try {
-      const data = await ordersService.getAll();
-      setOrders(data);
+      const draft = await ordersService.initializeDraft(customerId);
+      setIsCustomerModalOpen(false);
+      navigate(`/orders/${draft.id}`);
     } catch (err) {
-      setError('No se pudieron cargar las órdenes de servicio.');
-      console.error(err);
+      toast.error('Error al iniciar el borrador de la orden');
     } finally {
-      setLoading(false);
+      setIsCreatingDraft(false);
     }
   };
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  const handleCreateNew = () => {
-    setSelectedOrder(undefined);
-    setIsModalOpen(true);
-  };
-
-  const handleView = (order: ServiceOrder) => {
-    setViewOrder(order);
-    setIsViewModalOpen(true);
-  };
-
-  const handleEdit = (order: ServiceOrder) => {
-    setSelectedOrder(order);
-    setIsModalOpen(true);
+  const handleSelectOrder = (order: ServiceOrder) => {
+    navigate(`/orders/${order.id}`);
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar esta orden?')) {
       try {
         await ordersService.delete(id);
-        loadOrders();
+        mutateOrders();
+        toast.success('Orden eliminada');
       } catch (err) {
-        alert('Error al eliminar la orden.');
+        toast.error('Error al eliminar la orden');
       }
     }
   };
@@ -72,14 +66,16 @@ const OrdersPage: React.FC = () => {
   const handleStatusChange = async (id: string, status: OrderStatus) => {
     try {
       await ordersService.updateStatus(id, status);
-      loadOrders();
+      mutateOrders();
+      toast.success(`Estado actualizado a ${status}`);
     } catch (err) {
-      alert('Error al actualizar el estado.');
+      toast.error('Error al actualizar el estado');
     }
   };
 
   // Filter Logic
   const filteredOrders = useMemo(() => {
+    if (!orders) return [];
     return orders.filter(order => {
       const matchesSearch = 
         order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -96,6 +92,7 @@ const OrdersPage: React.FC = () => {
   }, [orders, searchTerm, statusFilter, dateFrom, dateTo]);
 
   const stats = useMemo(() => {
+    if (!orders) return { total: 0, pending: 0, completed: 0 };
     return {
       total: orders.length,
       pending: orders.filter(o => o.status === 'CREATED' || o.status === 'IN_PROGRESS').length,
@@ -116,7 +113,7 @@ const OrdersPage: React.FC = () => {
             Órdenes de Servicio
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">
-            Gestiona y monitorea el flujo de producción.
+            Gestiona y monitorea el flujo de producción industrial.
           </p>
         </div>
 
@@ -140,7 +137,7 @@ const OrdersPage: React.FC = () => {
             </div>
           </div>
           <button
-            onClick={handleCreateNew}
+            onClick={() => setIsCustomerModalOpen(true)}
             className="px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-all flex items-center gap-3 shadow-xl shadow-indigo-100 dark:shadow-none hover:-translate-y-1 active:scale-95"
           >
             <Plus className="w-6 h-6" />
@@ -149,12 +146,12 @@ const OrdersPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Persistence / Error State */}
-      {error && (
+      {/* Error State */}
+      {ordersError && (
         <div className="mb-8 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/50 rounded-2xl flex items-center gap-3 text-rose-600 dark:text-rose-400">
           <AlertCircle className="w-5 h-5 font-bold" />
-          <p className="font-medium">{error}</p>
-          <button onClick={loadOrders} className="ml-auto underline font-bold">Reintentar</button>
+          <p className="font-medium">No se pudieron cargar las órdenes de servicio.</p>
+          <button onClick={() => mutateOrders()} className="ml-auto underline font-bold">Reintentar</button>
         </div>
       )}
 
@@ -167,7 +164,7 @@ const OrdersPage: React.FC = () => {
             <input
               type="text"
               placeholder="Buscar por # de orden o cliente..."
-              className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-indigo-500 rounded-2xl transition-all outline-none dark:text-white"
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-indigo-500 rounded-2xl transition-all outline-none dark:text-white font-bold"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -207,11 +204,6 @@ const OrdersPage: React.FC = () => {
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
               />
-              {(dateFrom || dateTo) && (
-                <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-rose-500 hover:text-rose-600 ml-2">
-                   <RefreshCw className="w-3 h-3" />
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -219,7 +211,7 @@ const OrdersPage: React.FC = () => {
 
       {/* Table Section */}
       <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-[40px] p-2 min-h-[400px]">
-        {loading ? (
+        {isLoading ? (
           <div className="flex flex-col items-center justify-center py-32">
             <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
             <p className="text-slate-500 dark:text-slate-400 font-medium animate-pulse">Sincronizando órdenes...</p>
@@ -227,8 +219,7 @@ const OrdersPage: React.FC = () => {
         ) : filteredOrders.length > 0 ? (
           <OrdersTable 
             orders={filteredOrders} 
-            onView={handleView}
-            onEdit={handleEdit}
+            onSelect={handleSelectOrder}
             onDelete={handleDelete}
             onStatusChange={handleStatusChange}
           />
@@ -243,20 +234,13 @@ const OrdersPage: React.FC = () => {
         )}
       </div>
 
-      {/* Modals */}
-      <OrderFormModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSuccess={loadOrders}
-        initialOrder={selectedOrder}
+      <CustomerSelectModal
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        customers={customers || []}
+        onSelect={handleCreateDraft}
+        loading={isCreatingDraft}
       />
-
-      <OrderDetailModal
-        isOpen={isViewModalOpen}
-        onClose={() => setIsViewModalOpen(false)}
-        order={viewOrder}
-      />
-
     </div>
   );
 };
