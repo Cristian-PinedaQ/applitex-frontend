@@ -32,3 +32,4 @@ pxnp-debug.log*
 # Sistema
 .DS_Store
 Thumbs.db
+*.tsbuildinfo
