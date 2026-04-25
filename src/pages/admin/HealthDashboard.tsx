@@ -128,6 +128,7 @@ export const HealthDashboard: React.FC = () => {
           icon={Shield}
           color="bg-emerald-500"
           isAlert={metrics.active_alerts.high_error_rate}
+          subtitle={metrics.total_operations < 5 ? 'Datos insuficientes para estadística real' : ''}
         />
         <MetricCard 
           title="Conflictos (409)" 
@@ -148,6 +149,7 @@ export const HealthDashboard: React.FC = () => {
           value={metrics.total_operations}
           icon={Zap}
           color="bg-indigo-500"
+          subtitle={metrics.raw_counts ? `S: ${metrics.raw_counts.order_success + metrics.raw_counts.inv_success} | E: ${metrics.raw_counts.order_errors + metrics.raw_counts.inv_errors}` : ''}
         />
       </div>
 

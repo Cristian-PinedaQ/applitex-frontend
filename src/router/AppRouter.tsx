@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthGuard } from '../components/layout/AuthGuard';
+import { RoleGuard } from '../components/layout/RoleGuard';
 import { AppLayout } from '../components/layout/AppLayout';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { RegisterPage } from '../pages/auth/RegisterPage';
@@ -44,11 +45,15 @@ export function AppRouter() {
           <Route path="production" element={<ProductionOrdersPage />} />
           <Route path="production/:id" element={<ProductionExecutionPage />} />
           <Route path="production/templates/new" element={<ProductionTemplateEditor />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="users/:id" element={<UserDetailPage />} />
-          <Route path="tenants" element={<TenantsPage />} />
-          <Route path="tenants/:id" element={<TenantDetailPage />} />
-          <Route path="health" element={<HealthDashboard />} />
+          
+          {/* RUTAS SOLO PARA SUPER ADMIN */}
+          <Route element={<RoleGuard allowedRoles={['ROLE_SUPER_ADMIN']} />}>
+            <Route path="users" element={<UsersPage />} />
+            <Route path="users/:id" element={<UserDetailPage />} />
+            <Route path="tenants" element={<TenantsPage />} />
+            <Route path="tenants/:id" element={<TenantDetailPage />} />
+            <Route path="health" element={<HealthDashboard />} />
+          </Route>
         </Route>
       </Route>
 

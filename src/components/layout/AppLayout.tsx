@@ -1,17 +1,13 @@
-import { useEffect, useState } from 'react';
-import { Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { Drawer } from 'vaul';
-import { useAuthStore } from '../../store/authStore';
-import { useMediaQuery } from '../../hooks/useMediaQuery';
-import { useScrollRestoration } from '../../hooks/useScrollRestoration';
-import logo from '../../assets/logo.png';
 import { 
-  LogOut, 
   LayoutDashboard, 
   UserCheck, 
   PackageOpen, 
   Boxes, 
   FileText, 
+  LogOut, 
   Users as TeamIcon, 
   Building2, 
   Menu,
@@ -19,6 +15,10 @@ import {
   Factory,
   Activity
 } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useScrollRestoration } from '../../hooks/useScrollRestoration';
+import logo from '../../assets/logo.png';
 
 export function AppLayout() {
   const { logout, email, role, tenantId } = useAuthStore();
@@ -47,11 +47,14 @@ export function AppLayout() {
     { name: 'Inventario', icon: Boxes, path: '/inventory' },
     { name: 'Órdenes', icon: FileText, path: '/orders' },
     { name: 'Producción', icon: Factory, path: '/production' },
-    { name: 'Equipo', icon: TeamIcon, path: '/users' },
   ];
 
-  if (tenantId === 'master' && role === 'ROLE_SUPER_ADMIN') {
-    menu.push({ name: 'Empresas', icon: Building2, path: '/tenants' });
+  if (role === 'ROLE_SUPER_ADMIN') {
+    menu.push({ name: 'Equipo', icon: TeamIcon, path: '/users' });
+    if (tenantId === 'master') {
+      menu.push({ name: 'Empresas', icon: Building2, path: '/tenants' });
+      menu.push({ name: 'Salud Sistema', icon: Activity, path: '/health' });
+    }
   }
 
   const SidebarContent = () => (
@@ -109,8 +112,6 @@ export function AppLayout() {
         <Drawer.Portal>
           <Drawer.Overlay className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-40 animate-in fade-in duration-300" />
           <Drawer.Content className="fixed bottom-0 left-0 top-0 w-[280px] z-50 outline-none flex">
-            <Drawer.Title className="sr-only">Menú de Navegación</Drawer.Title>
-            <Drawer.Description className="sr-only">Accede a las diferentes secciones del sistema</Drawer.Description>
             {/* El Drawer gestiona su propio Safe Area para ser independiente */}
             <div className="flex-1 h-full shadow-2xl animate-in slide-in-from-left duration-300 pb-safe pt-safe overflow-y-auto">
               <SidebarContent />
