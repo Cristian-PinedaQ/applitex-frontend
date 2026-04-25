@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { AuthService } from '../../services/auth.service';
 import { Building2, Mail, KeyRound, ArrowRight, Loader2, Target, ArrowLeft } from 'lucide-react';
+import logo from '../../assets/logo.png';
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -71,9 +72,7 @@ export function RegisterPage() {
         </button>
 
         <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-6 shadow-highlight border border-white">
-            <Target className="text-indigo-600 w-8 h-8" />
-          </div>
+          <img src={logo} alt="Applitex Logo" className="mx-auto w-40 h-40 object-contain mb-2 drop-shadow-2xl filter brightness-110" />
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 mb-2">
             Abre tu Taller Web
           </h1>

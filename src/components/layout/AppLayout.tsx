@@ -4,6 +4,7 @@ import { Drawer } from 'vaul';
 import { useAuthStore } from '../../store/authStore';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useScrollRestoration } from '../../hooks/useScrollRestoration';
+import logo from '../../assets/logo.png';
 import { 
   LogOut, 
   LayoutDashboard, 
@@ -14,7 +15,9 @@ import {
   Users as TeamIcon, 
   Building2, 
   Menu,
-  X
+  X,
+  Factory,
+  Activity
 } from 'lucide-react';
 
 export function AppLayout() {
@@ -43,6 +46,7 @@ export function AppLayout() {
     { name: 'Catálogo', icon: PackageOpen, path: '/catalog' },
     { name: 'Inventario', icon: Boxes, path: '/inventory' },
     { name: 'Órdenes', icon: FileText, path: '/orders' },
+    { name: 'Producción', icon: Factory, path: '/production' },
     { name: 'Equipo', icon: TeamIcon, path: '/users' },
   ];
 
@@ -52,9 +56,13 @@ export function AppLayout() {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white dark:bg-slate-900 border-r border-slate-200/50">
-      <div className="h-16 flex items-center px-6 border-b border-slate-100/50 shrink-0">
-        <span className="font-bold text-xl text-slate-800 dark:text-white tracking-tight">Applitex</span>
-        <span className="ml-2 text-[10px] font-black px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100 uppercase">
+      <div className="h-24 flex items-center px-6 border-b border-slate-100/50 shrink-0 gap-4">
+        <img src={logo} alt="Applitex Logo" className="w-14 h-14 object-contain drop-shadow-xl" />
+        <div className="flex flex-col">
+          <span className="font-black text-2xl text-slate-900 dark:text-white tracking-tighter leading-none">Applitex</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">Textile Pro</span>
+        </div>
+        <span className="ml-auto text-[9px] font-black px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 uppercase">
           {tenantId}
         </span>
       </div>
@@ -101,6 +109,8 @@ export function AppLayout() {
         <Drawer.Portal>
           <Drawer.Overlay className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-40 animate-in fade-in duration-300" />
           <Drawer.Content className="fixed bottom-0 left-0 top-0 w-[280px] z-50 outline-none flex">
+            <Drawer.Title className="sr-only">Menú de Navegación</Drawer.Title>
+            <Drawer.Description className="sr-only">Accede a las diferentes secciones del sistema</Drawer.Description>
             {/* El Drawer gestiona su propio Safe Area para ser independiente */}
             <div className="flex-1 h-full shadow-2xl animate-in slide-in-from-left duration-300 pb-safe pt-safe overflow-y-auto">
               <SidebarContent />
@@ -121,21 +131,27 @@ export function AppLayout() {
         <header className="h-16 h-dynamic max-h-16 glass dark:glass-dark sticky top-0 z-30 border-b border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between px-6 lg:px-10">
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => setIsMobileMenuOpen(true)}
+              onClick={(e) => {
+                e.currentTarget.blur();
+                setIsMobileMenuOpen(true);
+              }}
               className="lg:hidden p-3 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl active:scale-95 transition-all"
               aria-label="Abrir menú"
             >
               <Menu className="w-6 h-6" />
             </button>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] leading-none mb-1">Sistema</span>
-              <span className="text-base lg:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none">Cómputo Administrativo</span>
+            <div className="flex items-center gap-3">
+              <img src={logo} alt="Applitex Logo" className="w-9 h-9 object-contain drop-shadow-sm lg:hidden" />
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] leading-none mb-1.5">Módulo de Gestión</span>
+                <span className="text-base lg:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none">SyncCore <span className="text-slate-400 font-medium">v1.2</span></span>
+              </div>
             </div>
           </div>
 
           <div className="hidden sm:flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700">
-                <LayoutDashboard className="w-5 h-5 text-slate-400" />
+             <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center border border-slate-200 dark:border-white/10 shadow-sm">
+                <Activity className="w-5 h-5 text-indigo-500" />
              </div>
           </div>
         </header>

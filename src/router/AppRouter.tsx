@@ -16,9 +16,10 @@ import UserDetailPage from '../pages/users/UserDetailPage';
 import TenantsPage from '../pages/tenants/TenantsPage';
 import TenantDetailPage from '../pages/tenants/TenantDetailPage';
 import { HealthDashboard } from '../pages/admin/HealthDashboard';
-
-// Páginas de marcador de posición temporal para validar arquitectura
-const DashboardPlaceholder = () => <div className="text-xl">📊 Dashboard Maquetado</div>;
+import { ProductionOrdersPage } from '../pages/production/ProductionOrdersPage';
+import { ProductionExecutionPage } from '../pages/production/ProductionExecutionPage';
+import { ProductionTemplateEditor } from '../pages/production/ProductionTemplateEditor';
+import { DashboardPage } from '../pages/dashboard/DashboardPage';
 
 export function AppRouter() {
   return (
@@ -31,7 +32,7 @@ export function AppRouter() {
       {/* RUTAS PRIVADAS SASS (Protegidas por AuthGuard y envueltas en AppLayout) */}
       <Route element={<AuthGuard />}>
         <Route element={<AppLayout />}>
-          <Route path="/dashboard" element={<DashboardPlaceholder />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="customers/:id" element={<CustomerDetailPage />} />
           <Route path="catalog" element={<CatalogPage />} />
@@ -40,6 +41,9 @@ export function AppRouter() {
           <Route path="inventory/:id" element={<InventoryDetailPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
+          <Route path="production" element={<ProductionOrdersPage />} />
+          <Route path="production/:id" element={<ProductionExecutionPage />} />
+          <Route path="production/templates/new" element={<ProductionTemplateEditor />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="users/:id" element={<UserDetailPage />} />
           <Route path="tenants" element={<TenantsPage />} />

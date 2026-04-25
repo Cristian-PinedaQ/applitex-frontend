@@ -79,10 +79,8 @@ export function CatalogPage() {
 
   // Revalidación en background (SWR)
   const handleRevalidate = () => {
-    const controller = new AbortController();
     setSyncing(true);
-    loadAll(controller.signal);
-    return () => controller.abort();
+    loadAll();
   };
 
   // ─── Filtrado de productos ───

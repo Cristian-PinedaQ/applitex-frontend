@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { AuthService } from '../../services/auth.service';
 import { ShieldCheck, Mail, KeyRound, Building2, Loader2, ArrowRight } from 'lucide-react';
+import logo from '../../assets/logo.png';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -43,9 +44,7 @@ export function LoginPage() {
       <div className="absolute bottom-[-10%] md:bottom-0 left-[-10%] md:left-0 w-[40rem] h-[40rem] bg-indigo-100 rounded-full blur-[100px] opacity-60 pointer-events-none"></div>
 
       <div className="max-w-md w-full glass rounded-[2rem] p-8 md:p-10 text-center border border-white/50 shadow-2xl relative z-10 w-full transform transition-all">
-        <div className="mx-auto w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mb-6 shadow-highlight border border-white">
-          <ShieldCheck className="text-primary-600 w-8 h-8" />
-        </div>
+        <img src={logo} alt="Applitex Logo" className="mx-auto w-40 h-40 object-contain mb-2 drop-shadow-2xl filter brightness-110" />
         
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 mb-2">
           Bienvenido

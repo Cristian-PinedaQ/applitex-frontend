@@ -49,6 +49,11 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    // Si la petición fue cancelada intencionalmente, no la tratamos como error de logs
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
+    }
+
     const requestId = error.config?.headers?.['X-Request-ID'];
     if (error.response) {
       console.error(`❌ [API] Error ${error.response.status} [ID: ${requestId}]:`, error.response.data);

@@ -30,11 +30,9 @@ export function BottomSheet({ trigger, title, description, children }: BottomShe
                 {title}
               </Drawer.Title>
               
-              {description && (
-                <Drawer.Description className="text-slate-500 mb-6 font-medium">
-                  {description}
-                </Drawer.Description>
-              )}
+              <Drawer.Description className={description ? "text-slate-500 mb-6 font-medium" : "sr-only"}>
+                {description || title}
+              </Drawer.Description>
               
               <div className="pb-8">
                 {children}
