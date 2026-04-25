@@ -26,13 +26,13 @@ export function BottomSheet({ trigger, title, description, children }: BottomShe
             <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-slate-300 mb-6" />
             
             <div className="max-w-md mx-auto">
-              <Drawer.Title className="font-semibold text-2xl text-slate-900 mb-2">
+              <h2 className="font-semibold text-2xl text-slate-900 mb-2">
                 {title}
-              </Drawer.Title>
+              </h2>
               
-              <Drawer.Description className={description ? "text-slate-500 mb-6 font-medium" : "sr-only"}>
+              <p className={description ? "text-slate-500 mb-6 font-medium" : "sr-only"}>
                 {description || title}
-              </Drawer.Description>
+              </p>
               
               <div className="pb-8">
                 {children}

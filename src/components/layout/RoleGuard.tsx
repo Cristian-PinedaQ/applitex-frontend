@@ -10,6 +10,7 @@ export function RoleGuard({ allowedRoles, redirectTo = '/dashboard' }: RoleGuard
   const role = useAuthStore((state) => state.role);
 
   if (!role || !allowedRoles.includes(role)) {
+    console.warn(`🚫 [RoleGuard] Acceso denegado: El rol '${role}' no tiene permiso. Requerido: ${allowedRoles.join(', ')}. Redirigiendo a ${redirectTo}`);
     return <Navigate to={redirectTo} replace />;
   }
 

@@ -33,7 +33,7 @@ export function AppRouter() {
       {/* RUTAS PRIVADAS SASS (Protegidas por AuthGuard y envueltas en AppLayout) */}
       <Route element={<AuthGuard />}>
         <Route element={<AppLayout />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="dashboard" element={<DashboardPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="customers/:id" element={<CustomerDetailPage />} />
           <Route path="catalog" element={<CatalogPage />} />
@@ -43,7 +43,7 @@ export function AppRouter() {
           <Route path="orders" element={<OrdersPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
           <Route path="production" element={<ProductionOrdersPage />} />
-          <Route path="production/:id" element={<ProductionExecutionPage />} />
+          <Route path="production/execution/:id" element={<ProductionExecutionPage />} />
           <Route path="production/templates/new" element={<ProductionTemplateEditor />} />
           
           {/* RUTAS SOLO PARA SUPER ADMIN */}
@@ -58,7 +58,7 @@ export function AppRouter() {
       </Route>
 
       {/* RUTA 404 CATCH-ALL */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

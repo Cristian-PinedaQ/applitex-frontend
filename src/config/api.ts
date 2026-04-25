@@ -61,7 +61,8 @@ api.interceptors.response.use(
       console.error(`❌ [API] Network/Unknown Error [ID: ${requestId}]:`, error.message);
     }
 
-    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+    if (error.response && error.response.status === 401) {
+      console.error('🛡️ [API] 401 Unauthorized detected. Logging out and redirecting to /login');
       useAuthStore.getState().logout();
       window.location.href = '/login'; 
     }

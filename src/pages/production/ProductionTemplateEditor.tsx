@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Settings2
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { ProductionService, ProductionTemplatePayload } from '../../services/production.service';
 import { toast } from 'react-hot-toast';
 

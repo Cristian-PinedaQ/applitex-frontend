@@ -136,31 +136,27 @@ export function ProductionOrdersPage() {
 
       {/* ORDERS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {[
-          { id: 'OP-2024-001', name: 'Lote Camisas Oxford L', so: 'OS-8829', status: 'En Ejecución', progress: 65, items: 3 },
-          { id: 'OP-2024-002', name: 'Producción Uniformes Colegio San José', so: 'OS-8830', status: 'Planificada', progress: 0, items: 12 },
-          { id: 'OP-2024-003', name: 'Lote Pantalones Dril Beige', so: 'OS-8825', status: 'Completada', progress: 100, items: 5 },
-        ].map((op) => (
+        {MOCK_ORDERS.map((op) => (
           <div key={op.id} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 hover:border-indigo-500/40 transition-all group shadow-sm dark:shadow-none">
             <div className="flex items-center justify-between mb-8">
               <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
-                op.status === 'En Ejecución' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' :
-                op.status === 'Completada' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
+                op.status === 'IN_PROGRESS' ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' :
+                op.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
                 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
               }`}>
                 <div className="flex items-center gap-2">
                   <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-                    op.status === 'En Ejecución' ? 'bg-indigo-500' :
-                    op.status === 'Completada' ? 'bg-emerald-500' : 'bg-slate-500'
+                    op.status === 'IN_PROGRESS' ? 'bg-indigo-500' :
+                    op.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-slate-500'
                   }`} />
-                  {op.status}
+                  {op.status === 'IN_PROGRESS' ? 'En Ejecución' : op.status === 'COMPLETED' ? 'Completada' : 'Planificada'}
                 </div>
               </span>
               <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{op.id}</span>
             </div>
 
-            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{op.name}</h3>
-            <p className="text-sm font-bold text-slate-500 mb-8">Vinculada a <span className="text-indigo-600 dark:text-indigo-400">#{op.so}</span></p>
+            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{op.reference}</h3>
+            <p className="text-sm font-bold text-slate-500 mb-8">Vinculada a <span className="text-indigo-600 dark:text-indigo-400">#{op.osReference}</span></p>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
@@ -170,7 +166,7 @@ export function ProductionOrdersPage() {
               <div className="h-2 bg-slate-100 dark:bg-slate-950 rounded-full overflow-hidden border border-slate-200 dark:border-white/5">
                 <div 
                   className={`h-full transition-all duration-1000 ${
-                    op.status === 'Completada' ? 'bg-emerald-500' : 'bg-indigo-600'
+                    op.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-indigo-600'
                   }`}
                   style={{ width: `${op.progress}%` }}
                 />
@@ -192,6 +188,7 @@ export function ProductionOrdersPage() {
           </div>
         ))}
       </div>
+
     </div>
   );
 }

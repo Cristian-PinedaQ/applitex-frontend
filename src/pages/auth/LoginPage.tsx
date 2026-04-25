@@ -7,7 +7,14 @@ import logo from '../../assets/logo.png';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const login = useAuthStore((state) => state.login);
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const [tenantId, setTenantId] = useState('');
   const [email, setEmail] = useState('');
