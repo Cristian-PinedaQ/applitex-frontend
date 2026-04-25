@@ -68,3 +68,12 @@ export interface InventoryMovement {
   createdAt: string;
   createdBy: string;
 }
+
+export interface ActiveReservation {
+  reservationId: string;
+  orderNumber: string;
+  orderId: string;
+  quantity: number;
+  createdAt: string;
+  customerName: string;
+}

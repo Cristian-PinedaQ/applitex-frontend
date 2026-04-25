@@ -8,7 +8,6 @@ import {
   Loader2, 
   Save, 
   Trash2,
-  Activity,
   User as UserIcon,
   ShieldCheck,
   History

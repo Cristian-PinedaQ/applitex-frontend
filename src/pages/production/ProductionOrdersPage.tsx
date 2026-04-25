@@ -9,7 +9,6 @@ import {
   Filter,
   Search,
   Factory,
-  Activity,
   ShieldCheck,
   Zap
 } from 'lucide-react';
@@ -44,26 +43,6 @@ const MOCK_ORDERS = [
     items: 5
   }
 ];
-
-const STATUS_CONFIG = {
-  PLANNED: { 
-    label: 'Planificada', 
-    icon: Clock, 
-    color: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
-    bg: 'bg-slate-500'
-  },
-  IN_PROGRESS: { 
-    label: 'En Ejecución', 
-    icon: Play, 
-    color: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
-    bg: 'bg-blue-500'
-  },
-  COMPLETED: { 
-    label: 'Completada', 
-    icon: CheckCircle2, 
-    color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
-  }
-};
 
 export function ProductionOrdersPage() {
   const navigate = useNavigate();

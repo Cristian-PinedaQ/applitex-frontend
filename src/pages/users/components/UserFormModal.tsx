@@ -7,11 +7,11 @@ interface UserFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  initialUser?: User;
+  user?: User;
 }
 
 const UserFormModal: React.FC<UserFormModalProps> = ({ 
-  isOpen, onClose, onSuccess, initialUser 
+  isOpen, onClose, onSuccess, user 
 }) => {
   const [formData, setFormData] = useState<UserRequest>({
     fullName: '',
@@ -23,11 +23,11 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initialUser) {
+    if (user) {
       setFormData({
-        fullName: initialUser.fullName,
-        email: initialUser.email,
-        role: initialUser.role,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
         password: '' // Contraseña vacía al editar
       });
     } else {
@@ -39,7 +39,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
       });
     }
     setError(null);
-  }, [initialUser, isOpen]);
+  }, [user, isOpen]);
 
   if (!isOpen) return null;
 
@@ -49,8 +49,8 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
     setError(null);
 
     try {
-      if (initialUser) {
-        await usersService.update(initialUser.id, formData);
+      if (user) {
+        await usersService.update(user.id, formData);
       } else {
         await usersService.create(formData);
       }
@@ -81,7 +81,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
               <UserPlus className="w-6 h-6 text-white" />
             </div>
             <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              {initialUser ? 'Editar Miembro' : 'Nuevo Miembro'}
+              {user ? 'Editar Miembro' : 'Nuevo Miembro'}
             </h2>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-400">
@@ -136,14 +136,14 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
           <div className="space-y-2">
             <div className="flex justify-between items-center px-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contraseña</label>
-              {initialUser && <span className="text-[9px] font-bold text-amber-500">Dejar en blanco para no cambiar</span>}
+              {user && <span className="text-[9px] font-bold text-amber-500">Dejar en blanco para no cambiar</span>}
             </div>
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
                 <Lock className="w-4 h-4 text-slate-400" />
               </div>
               <input
-                required={!initialUser}
+                required={!user}
                 type="password"
                 className="w-full pl-14 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none transition-all dark:text-white"
                 placeholder="••••••••"
@@ -203,7 +203,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
               ) : (
                 <>
                   <Save className="w-5 h-5" />
-                  {initialUser ? 'Guardar Cambios' : 'Crear Usuario'}
+                  {user ? 'Guardar Cambios' : 'Crear Usuario'}
                 </>
               )}
             </button>
