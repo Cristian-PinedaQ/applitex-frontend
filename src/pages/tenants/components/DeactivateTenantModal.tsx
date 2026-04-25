@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Tenant } from "../../../services/tenants.service";
 
 interface DeactivateTenantModalProps {
