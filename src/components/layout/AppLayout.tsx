@@ -47,15 +47,14 @@ export function AppLayout() {
     { name: 'Inventario', icon: Boxes, path: '/inventory' },
     { name: 'Órdenes', icon: FileText, path: '/orders' },
     { name: 'Producción', icon: Factory, path: '/production' },
+    ...(role === 'ROLE_SUPER_ADMIN' ? [
+      { name: 'Equipo', icon: TeamIcon, path: '/users' },
+      ...(tenantId === 'master' ? [
+        { name: 'Empresas', icon: Building2, path: '/tenants' },
+        { name: 'Salud Sistema', icon: Activity, path: '/health' }
+      ] : [])
+    ] : [])
   ];
-
-  if (role === 'ROLE_SUPER_ADMIN') {
-    menu.push({ name: 'Equipo', icon: TeamIcon, path: '/users' });
-    if (tenantId === 'master') {
-      menu.push({ name: 'Empresas', icon: Building2, path: '/tenants' });
-      menu.push({ name: 'Salud Sistema', icon: Activity, path: '/health' });
-    }
-  }
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white dark:bg-slate-900 border-r border-slate-200/50">
