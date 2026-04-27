@@ -1,6 +1,16 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
-import { v4 as uuidv4 } from 'uuid';
+
+// UUID v4 compatible sin depender de crypto.randomUUID (funciona en HTTP y HTTPS)
+function generateUUID(): string {
+  return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) => {
+    const n = parseInt(c);
+    return (
+      n ^
+      (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (n / 4)))
+    ).toString(16);
+  });
+}
 
 // Aseguramos que la URL termine en /
 const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
@@ -18,8 +28,8 @@ export const api = axios.create({
 // Interceptor de Petición (Token + Request-ID)
 api.interceptors.request.use(
   (config) => {
-    // ID único PRO (UUID estándar)
-    const requestId = uuidv4();
+    // ID único usando generateUUID en vez de uuidv4
+    const requestId = generateUUID();
 
     config.headers['X-Request-ID'] = requestId;
 
