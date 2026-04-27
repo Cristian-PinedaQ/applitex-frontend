@@ -21,6 +21,7 @@ import { ProductionOrdersPage } from '../pages/production/ProductionOrdersPage';
 import { ProductionExecutionPage } from '../pages/production/ProductionExecutionPage';
 import { ProductionTemplateEditor } from '../pages/production/ProductionTemplateEditor';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
+import { ChangePasswordPage } from '../pages/auth/ChangePasswordPage';
 
 export function AppRouter() {
   return (
@@ -30,8 +31,11 @@ export function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
-      {/* RUTAS PRIVADAS SASS (Protegidas por AuthGuard y envueltas en AppLayout) */}
+      {/* RUTAS PRIVADAS SASS (Protegidas por AuthGuard) */}
       <Route element={<AuthGuard />}>
+        {/* Ruta de Cambio de Contraseña (sin Layout para ser bloqueante) */}
+        <Route path="change-password" element={<ChangePasswordPage />} />
+
         <Route element={<AppLayout />}>
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="customers" element={<CustomersPage />} />

@@ -34,42 +34,51 @@ export const useInventoryOperations = (initialItem: InventoryItem | null) => {
   }, [state]);
 
   const saveMetadata = useCallback(async () => {
-    if (!item || state !== 'DIRTY') return;
+  if (!item || state !== 'DIRTY') return;
 
-    const requestId = crypto.randomUUID();
-    setState('SAVING');
-    observability.trackEvent('inventory_save_started', { itemId: item.id }, { requestId });
+  const requestId = crypto.randomUUID();
+  setState('SAVING');
+  observability.trackEvent('inventory_save_started', { itemId: item.id }, { requestId });
 
-    try {
-      const updated = await invService.updateInventoryItem(item.id, {
-        name: item.name,
-        detail: item.detail,
-        price: item.price,
-        initialQuantity: item.initialQuantity,
-        categoryId: item.categoryId,
-        customerId: item.customerId,
-        version: item.version,
-        attributes: item.attributes.map(a => ({ 
-          attributeKey: a.attributeKey, 
-          attributeValue: a.attributeValue 
-        }))
-      });
+  try {
+    const isNew = !item.id; // ← detectar si es nuevo
 
-      setState('SYNCED');
-      setItem(updated);
-      setLastSavedItem(updated);
-      observability.trackEvent('inventory_save_success', { itemId: item.id }, { requestId });
-    } catch (err: any) {
-      if (err.response?.status === 409) {
-        setState('CONFLICT');
-        observability.trackEvent('inventory_conflict_detected', { itemId: item.id }, { requestId });
-      } else {
-        setState('ERROR');
-        observability.trackEvent('inventory_save_error', { itemId: item.id, error: err.message }, { requestId });
-      }
-      throw err;
+    const payload = {
+      name: item.name,
+      detail: item.detail,
+      price: item.price,
+      initialQuantity: item.initialQuantity,
+      categoryId: item.categoryId,
+      customerId: item.customerId,
+      version: item.version,
+      attributes: item.attributes.map(a => ({
+        attributeKey: a.attributeKey,
+        attributeValue: a.attributeValue
+      }))
+    };
+
+    // ✅ POST si es nuevo, PUT si ya existe
+    const updated = isNew
+      ? await invService.createInventoryItem(payload)
+      : await invService.updateInventoryItem(item.id, payload);
+
+    setState('SYNCED');
+    setItem(updated);
+    setLastSavedItem(updated);
+    observability.trackEvent('inventory_save_success', { itemId: updated.id }, { requestId });
+
+    return updated; // ← devolver para que la página pueda navegar al nuevo id
+  } catch (err: any) {
+    if (err.response?.status === 409) {
+      setState('CONFLICT');
+      observability.trackEvent('inventory_conflict_detected', { itemId: item.id }, { requestId });
+    } else {
+      setState('ERROR');
+      observability.trackEvent('inventory_save_error', { itemId: item.id, error: err.message }, { requestId });
     }
-  }, [item, state]);
+    throw err;
+  }
+}, [item, state]);
 
   // ─── Stock Adjust (Ledger-style with Exponential Backoff) ─────────────────
   const adjustStock = useCallback(async (amount: number, type: string, reason: string, retryCount = 0): Promise<InventoryItem | undefined> => {

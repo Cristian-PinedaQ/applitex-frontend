@@ -3,9 +3,6 @@ import {
   Users, 
   Package, 
   Factory, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Clock, 
   ArrowUpRight, 
   ArrowDownRight,
   Activity,
@@ -14,6 +11,18 @@ import {
   Plus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { DashboardService, DashboardStats } from '../../services/dashboard.service';
+import { ProductionService } from '../../services/production.service';
+
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 1,
+    notation: 'compact'
+  }).format(value);
+};
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -24,10 +33,73 @@ export function DashboardPage() {
     day: 'numeric' 
   });
 
-  const stats = [
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        setHasError(false);
+        const [statsData, ordersData] = await Promise.all([
+          DashboardService.getStats(),
+          ProductionService.getOrders(0, 5)
+        ]);
+        setStats(statsData);
+        setRecentOrders(ordersData.content || []);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        setHasError(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  if (hasError) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-6 animate-in fade-in duration-500">
+        <div className="p-6 rounded-[2rem] bg-rose-500/10 border border-rose-500/20 text-rose-600">
+          <Activity className="w-12 h-12" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Error de Conexión</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">No pudimos sincronizar con el centro de datos. Reintenta en unos momentos.</p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-500/20 transition-all active:scale-95"
+        >
+          Reintentar Sincronización
+        </button>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-10 animate-pulse">
+        <div className="h-20 w-1/3 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-48 bg-slate-100 dark:bg-slate-800/40 rounded-[2.5rem]" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 h-96 bg-slate-100 dark:bg-slate-800/40 rounded-[3rem]" />
+          <div className="h-96 bg-slate-100 dark:bg-slate-800/40 rounded-[3rem]" />
+        </div>
+      </div>
+    );
+  }
+
+  const kpis = [
     { 
       label: 'Ventas del Mes', 
-      value: '$124.8M', 
+      value: stats ? formatCurrency(parseFloat(stats.monthlySales)) : '$0', 
       trend: '+12.5%', 
       trendUp: true, 
       icon: TrendingUp, 
@@ -35,8 +107,8 @@ export function DashboardPage() {
     },
     { 
       label: 'Órdenes Activas', 
-      value: '42', 
-      trend: '+4 hoy', 
+      value: stats ? stats.activeProductionOrders.toString() : '0', 
+      trend: 'En planta', 
       trendUp: true, 
       icon: Factory, 
       color: 'from-indigo-500 to-blue-600' 
@@ -44,31 +116,19 @@ export function DashboardPage() {
     { 
       label: 'Eficiencia Planta', 
       value: '94.2%', 
-      trend: '-0.8%', 
+      trend: 'Meta: 95%', 
       trendUp: false, 
       icon: Activity, 
       color: 'from-amber-500 to-orange-600' 
     },
     { 
       label: 'Stock Crítico', 
-      value: '12', 
-      trend: '-2', 
-      trendUp: true, 
+      value: stats ? stats.criticalStockItems.toString() : '0', 
+      trend: 'Alertas', 
+      trendUp: false, 
       icon: Package, 
       color: 'from-rose-500 to-pink-600' 
     },
-  ];
-
-  const recentOrders = [
-    { id: 'OP-2024-001', reference: 'Lote Camisas Oxford L', status: 'IN_PROGRESS', progress: 65, time: '2h' },
-    { id: 'OP-2024-002', reference: 'Uniformes Colegio San José', status: 'PLANNED', progress: 0, time: '5h' },
-    { id: 'OP-2024-003', reference: 'Pantalones Dril Beige', status: 'COMPLETED', progress: 100, time: '1d' },
-  ];
-
-  const activities = [
-    { type: 'order', message: 'Nueva Orden de Servicio #OS-8830', time: 'Hace 10 min', icon: CheckCircle2, iconColor: 'text-emerald-500' },
-    { type: 'inventory', message: 'Bajo stock: Tela Oxford Azul (Corte 2)', time: 'Hace 45 min', icon: AlertTriangle, iconColor: 'text-amber-500' },
-    { type: 'production', message: 'OP-2024-001 completó fase de corte', time: 'Hace 2 horas', icon: Clock, iconColor: 'text-indigo-500' },
   ];
 
   return (
@@ -104,7 +164,7 @@ export function DashboardPage() {
 
       {/* KPI GRID */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, i) => (
+        {kpis.map((stat, i) => (
           <div key={i} className="group relative bg-white dark:bg-slate-900/60 rounded-[2.5rem] p-8 border border-slate-100 dark:border-white/5 hover:border-indigo-500/30 transition-all shadow-sm hover:shadow-2xl hover:shadow-indigo-500/10 overflow-hidden">
             {/* Background Glow */}
             <div className={`absolute -right-10 -top-10 w-32 h-32 bg-gradient-to-br ${stat.color} opacity-0 group-hover:opacity-10 blur-3xl transition-opacity`} />
@@ -147,30 +207,34 @@ export function DashboardPage() {
           </div>
 
           <div className="h-64 flex items-end justify-between gap-4">
-            {[45, 78, 62, 90, 55, 85, 70].map((h, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-4 group">
-                <div className="relative w-full flex flex-col justify-end">
-                  <div 
-                    className="w-full bg-slate-100 dark:bg-slate-800/50 rounded-2xl overflow-hidden relative group-hover:shadow-xl group-hover:shadow-indigo-500/20 transition-all duration-500"
-                    style={{ height: '240px' }}
-                  >
+            {stats?.productionPerformance.map((perf: any, i: number) => {
+              const h = Math.min(perf.total, 100); // Normalizar a porcentaje para visualización si es necesario o usar el valor real
+              const day = perf.day;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-4 group">
+                  <div className="relative w-full flex flex-col justify-end">
                     <div 
-                      className={`absolute bottom-0 w-full rounded-t-2xl transition-all duration-1000 delay-${i * 100} ease-out bg-gradient-to-t ${
-                        i === 3 ? 'from-indigo-600 to-violet-500' : 'from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-600'
-                      }`}
-                      style={{ height: `${h}%` }}
+                      className="w-full bg-slate-100 dark:bg-slate-800/50 rounded-2xl overflow-hidden relative group-hover:shadow-xl group-hover:shadow-indigo-500/20 transition-all duration-500"
+                      style={{ height: '240px' }}
                     >
-                      <div className="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-[10px] font-black text-white">{h}%</span>
+                      <div 
+                        className={`absolute bottom-0 w-full rounded-t-2xl transition-all duration-1000 delay-${i * 100} ease-out bg-gradient-to-t ${
+                          i === stats.productionPerformance.length - 1 ? 'from-indigo-600 to-violet-500' : 'from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-600'
+                        }`}
+                        style={{ height: `${h}%` }}
+                      >
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-[10px] font-black text-white">{perf.total}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {day}
+                  </span>
                 </div>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {['L', 'M', 'M', 'J', 'V', 'S', 'D'][i]}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -181,17 +245,27 @@ export function DashboardPage() {
             {/* Timeline Line */}
             <div className="absolute left-6 top-2 bottom-2 w-px bg-slate-100 dark:bg-slate-800" />
             
-            {activities.map((act, i) => (
+            {stats?.recentActivity.map((act: any, i: number) => (
               <div key={i} className="relative flex items-start gap-6 group">
                 <div className="relative z-10 w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center justify-center shadow-sm group-hover:border-indigo-500/50 transition-all">
-                  <act.icon className={`w-5 h-5 ${act.iconColor}`} />
+                  <Activity className={`w-5 h-5 text-indigo-500`} />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300 leading-tight mb-1">{act.message}</p>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{act.time}</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300 leading-tight mb-1">
+                    {act.description || act.eventType}
+                  </p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {new Date(act.eventTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </div>
               </div>
             ))}
+
+            {(!stats?.recentActivity || stats.recentActivity.length === 0) && (
+              <div className="text-center py-10">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sin actividad reciente</p>
+              </div>
+            )}
 
             <button className="w-full py-4 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-colors">
               Ver todo el historial

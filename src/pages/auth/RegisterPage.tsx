@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { AuthService } from '../../services/auth.service';
 import { Building2, Mail, KeyRound, ArrowRight, Loader2, ArrowLeft } from 'lucide-react';
-import logo from '../../assets/logo.png';
+import logo from '../../assets/logo.webp';
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -46,7 +46,7 @@ export function RegisterPage() {
         password 
       });
       // Inyección automática a la memoria Zustand
-      login(response.token, response.tenantId, response.email, response.role);
+      login(response.token, response.tenantId, response.email, response.role, false);
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
       setError(

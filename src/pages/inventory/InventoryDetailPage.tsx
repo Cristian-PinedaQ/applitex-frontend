@@ -7,9 +7,11 @@ import {
 import { motion } from 'framer-motion';
 import { inventoryService } from '../../services/inventory.service';
 import { catalogService } from '../../services/catalog.service';
+import { customerService } from '../../services/customer.service'; // ← AGREGADO: Importar customerService
 
 // import { InventoryItem, InventoryItemRequest } from '../../types/inventory'; // Removed as unused
 import { Category } from '../../types/catalog';
+import { Customer } from '../../types/customer'; // ← MODIFICADO: Importar desde customer en lugar de catalog
 
 import { InventoryMovement, ActiveReservation } from '../../types/inventory';
 
@@ -33,7 +35,7 @@ const InventoryDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState<Category[]>([]);
-  // const [customers, setCustomers]   = useState<Customer[]>([]); // Removed as unused
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading]       = useState(!isNew);
   const [isConflictOpen, setIsConflictOpen] = useState(false);
   
@@ -42,6 +44,11 @@ const InventoryDetailPage: React.FC = () => {
   
   const [reservations, setReservations] = useState<ActiveReservation[]>([]);
   const [loadingReservations, setLoadingReservations] = useState(false);
+
+  // Estado nuevo para autocomplete de cliente
+  const [customerQuery, setCustomerQuery] = useState('');
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   // ─── Track 1 & 2: SyncCore Operations ─────────────────────────────────────────
   const { 
@@ -54,16 +61,30 @@ const InventoryDetailPage: React.FC = () => {
   const [txType, setTxType]           = useState<'IN' | 'OUT' | 'ADJUST'>('IN');
   const [txReason, setTxReason]       = useState('');
 
+  // Filtrado en tiempo real
+  useEffect(() => {
+    if (!customerQuery) {
+      setFilteredCustomers([]);
+      return;
+    }
 
+    const q = customerQuery.toLowerCase();
 
+    setFilteredCustomers(
+      customers.filter(c =>
+        c.fullName.toLowerCase().includes(q)
+      )
+    );
+  }, [customerQuery, customers]);
 
   const loadInitialData = useCallback(async (signal?: AbortSignal) => {
     try {
-      const [cats] = await Promise.all([
-        catalogService.getCategories(signal)
+      const [cats, customersData] = await Promise.all([
+        catalogService.getCategories(signal),
+        customerService.getAll(signal) // ← CORREGIDO: Usar customerService.getAll
       ]);
       setCategories(cats);
-
+      setCustomers(customersData);
 
       if (!isNew) {
         const data = await inventoryService.getInventoryById(id!, signal);
@@ -118,13 +139,26 @@ const InventoryDetailPage: React.FC = () => {
     return () => ctrl.abort();
   }, [loadInitialData, loadMovements, loadReservations]);
 
+  // handleSaveMetadata con fix crítico
   const handleSaveMetadata = async () => {
-    try {
-      await saveMetadata();
-    } catch (err: any) {
-      if (err.response?.status === 409) setIsConflictOpen(true);
+  const currentItem = item;
+
+  if (!currentItem?.customerId && !selectedCustomer?.id) {
+    throw new Error("Debes seleccionar un cliente");
+  }
+
+  try {
+    const result = await saveMetadata();
+    if (isNew && result?.id) {
+      navigate(`/inventory/${result.id}`, { replace: true });
     }
-  };
+  } catch (err: any) {
+    if (err.response?.status === 409) setIsConflictOpen(true);
+    else if (err.message === "Debes seleccionar un cliente") {
+      alert(err.message);
+    }
+  }
+};
 
   const handleApplyStock = async () => {
     const amount = parseInt(txAmount, 10);
@@ -243,6 +277,42 @@ const InventoryDetailPage: React.FC = () => {
                       <input type="number" value={item.price} onChange={e => updateMetadata({ price: Number(e.target.value) })}
                         className="w-full pl-10 pr-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-emerald-500"
                       />
+                    </div>
+                  </div>
+                  
+                  {/* UI del campo (autocomplete básico) para cliente */}
+                  <div className="md:col-span-2">
+                    <div className="relative">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                        Cliente
+                      </label>
+
+                      <input
+                        value={customerQuery}
+                        onChange={(e) => setCustomerQuery(e.target.value)}
+                        placeholder="Buscar cliente..."
+                        className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 font-bold transition-all"
+                      />
+
+                      {filteredCustomers.length > 0 && (
+                        <div className="absolute z-10 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl mt-2 shadow-lg max-h-60 overflow-auto">
+                          {filteredCustomers.map(c => (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                setSelectedCustomer(c);
+                                setCustomerQuery(c.fullName);
+                                setFilteredCustomers([]);
+                                updateMetadata({ customerId: c.id });
+                              }}
+                              className="p-4 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer transition-colors"
+                            >
+                              <p className="font-bold text-slate-900 dark:text-white">{c.fullName}</p>
+                              {c.email && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{c.email}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

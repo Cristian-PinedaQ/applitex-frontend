@@ -1,67 +1,285 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   ArrowLeft,  
   RotateCcw, 
   CheckCircle2, 
   AlertTriangle,
   Info,
-  ChevronDown,
+  Clock,
   FileText,
   Activity,
   History,
-  Signature
+  Signature,
+  ClipboardCheck,
+  Settings2,
+  ChevronRight,
+  Lock,
+  Hash,
+  Type,
+  ToggleLeft,
+  Calendar,
+  List as ListIcon,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ProductionService } from '../../services/production.service';
 
-const MOCK_ORDER_DETAIL = {
-  id: 'OP-2024-001',
-  osReference: 'OS-8829',
-  reference: 'Lote Camisas Oxford L',
-  status: 'IN_PROGRESS',
-  items: [
-    {
-      id: 'ITM-001',
-      name: 'Tela Oxford Premium Azul',
-      sku: 'TEL-OXF-01',
-      ordered: 150,
-      reserved: 150,
-      available: 2450,
-      consumed: 95,
-      unit: 'Mts'
-    },
-    {
-      id: 'ITM-002',
-      name: 'Botón Nácar 12mm',
-      sku: 'ACC-BOT-12',
-      ordered: 1200,
-      reserved: 1200,
-      available: 8500,
-      consumed: 800,
-      unit: 'Und'
-    }
-  ]
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const fieldTypeIcon: Record<string, any> = {
+  TEXT: Type,
+  NUMBER: Hash,
+  SELECT: ListIcon,
+  BOOLEAN: ToggleLeft,
+  DATE: Calendar,
 };
 
+function QualityField({
+  field,
+  value,
+  onChange,
+  disabled,
+}: {
+  field: any;
+  value: any;
+  onChange: (val: any) => void;
+  disabled?: boolean;
+}) {
+  const Icon = fieldTypeIcon[field.type] || Type;
+  const base =
+    'w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500/60 focus:ring-4 focus:ring-indigo-500/5 transition-all disabled:opacity-50';
+
+  return (
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+        <Icon className="w-3.5 h-3.5" />
+        {field.name}
+        {field.required && <span className="text-red-500">*</span>}
+      </label>
+
+      {field.type === 'TEXT' && (
+        <input
+          type="text"
+          disabled={disabled}
+          placeholder={`Ingresa ${field.name.toLowerCase()}...`}
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          className={base}
+        />
+      )}
+
+      {field.type === 'NUMBER' && (
+        <input
+          type="number"
+          disabled={disabled}
+          placeholder="0"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+          className={base}
+        />
+      )}
+
+      {field.type === 'DATE' && (
+        <input
+          type="date"
+          disabled={disabled}
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          className={base}
+        />
+      )}
+
+      {field.type === 'BOOLEAN' && (
+        <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 rounded-xl">
+          <button
+            disabled={disabled}
+            onClick={() => onChange(true)}
+            className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+              value === true
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'
+            } disabled:opacity-50`}
+          >
+            Sí
+          </button>
+          <button
+            disabled={disabled}
+            onClick={() => onChange(false)}
+            className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+              value === false
+                ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20'
+                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'
+            } disabled:opacity-50`}
+          >
+            No
+          </button>
+        </div>
+      )}
+
+      {field.type === 'SELECT' && Array.isArray(field.options) && (
+        <div className="flex flex-wrap gap-2">
+          {field.options.map((opt: string) => (
+            <button
+              key={opt}
+              disabled={disabled}
+              onClick={() => onChange(opt)}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border transition-all ${
+                value === opt
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20'
+                  : 'bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:border-indigo-500/40'
+              } disabled:opacity-50`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ───────────────────────────────────────────────────────────────
+
 export function ProductionExecutionPage() {
-  const {} = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const [items, setItems] = useState(MOCK_ORDER_DETAIL.items);
+
+  const [order, setOrder] = useState<any>(null);
+  const [ledger, setLedger] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState<'execution' | 'reports' | 'ledger'>('execution');
+  const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(crypto.randomUUID());
 
-  const updateConsumed = (id: string, value: string) => {
-    const numValue = parseFloat(value) || 0;
-    setItems(prev => prev.map(item => 
-      item.id === id ? { ...item, consumed: numValue } : item
-    ));
+  // ── Report state ──
+  const [reportValues, setReportValues] = useState<Record<string, any>>({});
+  const [signedBy, setSignedBy] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (id) loadData();
+  }, [id]);
+
+  const loadData = async (silent = false) => {
+    try {
+      if (!silent) setIsLoading(true);
+      const [orderData, ledgerData] = await Promise.all([
+        ProductionService.getOrderById(id!),
+        ProductionService.getLedger(id!, 0, 10),
+      ]);
+      setOrder(orderData);
+      setLedger(ledgerData.content || []);
+    } catch (error) {
+      console.error('Error loading production data:', error);
+      setError('Error al sincronizar con el servidor');
+    } finally {
+      if (!silent) setIsLoading(false);
+    }
   };
+
+  const updateConsumed = async (itemId: string, amount: number) => {
+    if (amount <= 0) return;
+    const previousOrder = { ...order };
+    const updatedItems = order.items.map((item: any) =>
+      item.id === itemId
+        ? { ...item, consumedQuantity: (item.consumedQuantity || 0) + amount }
+        : item
+    );
+    setOrder({ ...order, items: updatedItems });
+    setIsSyncing(true);
+    try {
+      await ProductionService.consumeItem(itemId, {
+        amount,
+        reason: 'Consumo operativo en planta',
+        idempotencyKey: crypto.randomUUID(),
+        correlationId: `ui-${id}-${Date.now()}`,
+      });
+      await loadData(true);
+    } catch (err: any) {
+      setOrder(previousOrder);
+      setError(err.response?.data?.message || 'Error en el consumo. Reintentando...');
+      setTimeout(() => loadData(), 2000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // ── Report submit ──
+  const handleReportSubmit = async () => {
+    if (!order) return;
+
+    const template = order.template;
+    if (template?.fields) {
+      const missing = template.fields
+        .filter((f: any) => f.required && (reportValues[f.name] === undefined || reportValues[f.name] === ''))
+        .map((f: any) => f.name);
+      if (missing.length > 0) {
+        setReportError(`Campos obligatorios: ${missing.join(', ')}`);
+        return;
+      }
+    }
+
+    if (!signedBy.trim()) {
+      setReportError('El nombre del responsable es obligatorio para firmar.');
+      return;
+    }
+
+    setReportSubmitting(true);
+    setReportError(null);
+
+    try {
+      await ProductionService.completeProduction(order.id, {
+        templateId: template?.id || 'default-template',
+        values: reportValues,
+        signedBy: signedBy.trim(),
+        idempotencyKey: crypto.randomUUID(),
+        correlationId: `complete-${order.id}-${Date.now()}`,
+      });
+      setReportSuccess(true);
+      setTimeout(() => navigate('/production'), 1500);
+    } catch (err: any) {
+      setReportError(err.response?.data?.message || 'Error al enviar el reporte.');
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    // Redirect to reports tab so they fill the form first
+    setActiveTab('reports');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Cargando Planta...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!order) return null;
+
+  const template = order.template;
+  const hasTemplate = template && Array.isArray(template.fields) && template.fields.length > 0;
+  const completedFields = hasTemplate
+    ? template.fields.filter((f: any) => reportValues[f.name] !== undefined && reportValues[f.name] !== '').length
+    : 0;
+  const totalFields = hasTemplate ? template.fields.length : 0;
+  const reportProgress = totalFields > 0 ? Math.round((completedFields / totalFields) * 100) : 0;
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-700 pb-12">
-      {/* ELITE HEADER & NAVIGATION */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900/60 p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-none">
         <div className="flex items-center gap-4">
-          <button 
+          <button
             onClick={() => navigate('/production')}
             className="p-2.5 bg-slate-50 dark:bg-slate-950/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-xl border border-slate-200 dark:border-white/10 transition-all"
           >
@@ -69,13 +287,14 @@ export function ProductionExecutionPage() {
           </button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{MOCK_ORDER_DETAIL.reference}</h1>
+              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{order.reference}</h1>
               <span className="px-2.5 py-0.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                {MOCK_ORDER_DETAIL.status}
+                {order.status}
               </span>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-              Ref: <span className="text-indigo-600 dark:text-indigo-400 font-mono font-black">{MOCK_ORDER_DETAIL.id}</span> • Vinculada a <span className="text-indigo-600 dark:text-indigo-500 font-bold">{MOCK_ORDER_DETAIL.osReference}</span>
+              Ref: <span className="text-indigo-600 dark:text-indigo-400 font-mono font-black">{order.id.substring(0, 8)}</span> • Vinculada a{' '}
+              <span className="text-indigo-600 dark:text-indigo-500 font-bold">{order.serviceOrder.orderNumber}</span>
             </p>
           </div>
         </div>
@@ -85,99 +304,128 @@ export function ProductionExecutionPage() {
             <RotateCcw className="w-5 h-5" />
             Resetear
           </button>
-          <button className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-600/20 active:scale-95">
-            <CheckCircle2 className="w-5 h-5" />
+          <button
+            onClick={handleComplete}
+            disabled={isSyncing}
+            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
+          >
+            {isSyncing ? <Activity className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
             Finalizar OP
           </button>
         </div>
       </div>
 
-      {/* TABS NAVIGATION */}
+      {isSyncing && (
+        <div className="flex items-center gap-3 px-6 py-3 bg-indigo-600 text-white rounded-2xl shadow-2xl shadow-indigo-600/30 animate-in slide-in-from-top-4 duration-300 fixed top-8 right-8 z-[100]">
+          <Activity className="w-4 h-4 animate-spin" />
+          <span className="text-xs font-black uppercase tracking-widest">Synchronizing state...</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-600 rounded-2xl flex items-center justify-between animate-in fade-in slide-in-from-left-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5" />
+            <span className="text-sm font-bold">{error}</span>
+          </div>
+          <button onClick={() => setError(null)} className="text-xs font-black uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity">
+            Cerrar
+          </button>
+        </div>
+      )}
+
+      {/* TABS */}
       <div className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl w-fit shadow-sm dark:shadow-none">
         {[
           { id: 'execution', label: 'Ejecución y Consumo', icon: Activity },
-          { id: 'reports', label: 'Reportes de Calidad', icon: FileText },
-          { id: 'ledger', label: 'Auditoría (Ledger)', icon: History }
-        ].map(tab => (
+          { id: 'reports',   label: 'Reportes de Calidad', icon: FileText },
+          { id: 'ledger',    label: 'Auditoría (Ledger)',  icon: History },
+        ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              activeTab === tab.id 
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+              activeTab === tab.id
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-white/5'
             }`}
           >
             <tab.icon className="w-4 h-4" />
             {tab.label}
+            {tab.id === 'reports' && totalFields > 0 && (
+              <span className={`ml-1 text-[9px] font-black px-2 py-0.5 rounded-full ${
+                reportProgress === 100
+                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+              }`}>
+                {completedFields}/{totalFields}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* EXECUTION VIEW */}
+      {/* ── EXECUTION TAB ── */}
       {activeTab === 'execution' && (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Main Execution List */}
           <div className="xl:col-span-2 space-y-4">
-            {items.map((item) => {
-              const variance = item.consumed - item.ordered;
-
+            {order.items.map((item: any) => {
+              const variance = (item.consumedQuantity || 0) - item.orderedQuantity;
+              const snapshot = item.productSnapshot || {};
               return (
                 <div key={item.id} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 hover:border-indigo-500/20 rounded-3xl p-8 transition-all shadow-xl shadow-slate-200/40 dark:shadow-none group">
                   <div className="flex flex-col md:flex-row gap-8">
-                    {/* Item Info */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-1">{item.name}</h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-500 font-mono font-bold tracking-tight uppercase tracking-widest">{item.sku}</p>
-                      
+                      <h3 className="text-xl font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-1">{snapshot.name || 'Sin nombre'}</h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-500 font-mono font-bold tracking-tight uppercase tracking-widest">{snapshot.sku || 'N/A'}</p>
                       <div className="mt-8 grid grid-cols-3 gap-4">
                         <div className="p-4 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-slate-200 dark:border-white/5 text-center">
                           <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Ordenado</p>
-                          <p className="text-xl font-black text-slate-900 dark:text-white">{item.ordered}<span className="text-xs text-slate-400 ml-1 font-normal uppercase">{item.unit}</span></p>
+                          <p className="text-xl font-black text-slate-900 dark:text-white">{item.orderedQuantity}<span className="text-xs text-slate-400 ml-1 font-normal uppercase">{snapshot.unit}</span></p>
                         </div>
                         <div className="p-4 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl border border-indigo-200 dark:border-indigo-500/20 text-center">
-                          <p className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase font-black tracking-widest mb-1">Reservado</p>
-                          <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">{item.reserved}<span className="text-xs text-indigo-400 ml-1 font-normal uppercase">{item.unit}</span></p>
+                          <p className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase font-black tracking-widest mb-1">Diferencia</p>
+                          <p className={`text-xl font-black ${variance > 0 ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400'}`}>
+                            {variance.toFixed(1)}<span className="text-xs ml-1 font-normal uppercase">{snapshot.unit}</span>
+                          </p>
                         </div>
                         <div className="p-4 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-slate-200 dark:border-white/5 text-center">
-                          <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Disponible</p>
-                          <p className="text-xl font-black text-slate-900 dark:text-slate-200">{item.available}<span className="text-xs text-slate-400 ml-1 font-normal uppercase">{item.unit}</span></p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Consumido</p>
+                          <p className="text-xl font-black text-slate-900 dark:text-slate-200">{item.consumedQuantity || 0}<span className="text-xs text-slate-400 ml-1 font-normal uppercase">{snapshot.unit}</span></p>
                         </div>
                       </div>
                     </div>
-
-                    {/* Consumption Input */}
                     <div className="w-full md:w-72 space-y-4">
                       <div className="relative">
-                        <label className="block text-xs font-black text-slate-500 dark:text-slate-300 uppercase tracking-[0.2em] mb-3 px-1">Consumo Real</label>
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-white/10 focus-within:border-indigo-500/50 transition-all shadow-inner group-focus-within:ring-4 group-focus-within:ring-indigo-500/10">
-                          <input 
+                        <label className="block text-xs font-black text-slate-500 dark:text-slate-300 uppercase tracking-[0.2em] mb-3 px-1">Registrar Consumo</label>
+                        <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-white/10 focus-within:border-indigo-500/50 transition-all shadow-inner">
+                          <input
                             type="number"
-                            value={item.consumed}
-                            onChange={(e) => updateConsumed(item.id, e.target.value)}
+                            defaultValue={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                updateConsumed(item.id, parseFloat((e.target as HTMLInputElement).value));
+                                (e.target as HTMLInputElement).value = '0';
+                              }
+                            }}
                             className="bg-transparent border-none focus:ring-0 text-3xl font-black text-slate-900 dark:text-white w-full text-right px-2"
                           />
-                          <span className="text-slate-400 dark:text-slate-500 font-black pr-2 uppercase">{item.unit}</span>
+                          <span className="text-slate-400 dark:text-slate-500 font-black pr-2 uppercase">{snapshot.unit}</span>
                         </div>
+                        <p className="text-[10px] text-slate-400 mt-2 text-right font-bold uppercase tracking-widest italic">Presiona Enter para enviar</p>
                       </div>
-
-                      {/* Variance Indicator */}
                       <div className={`flex items-center justify-between p-4 rounded-xl border ${
                         variance === 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' :
-                        variance < 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400' :
-                        'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                        variance < 0  ? 'bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400' :
+                                        'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
                       }`}>
                         <div className="flex items-center gap-2">
-                          {variance === 0 ? <CheckCircle2 className="w-4 h-4" /> : 
-                           variance < 0 ? <ChevronDown className="w-4 h-4" /> : 
-                           <AlertTriangle className="w-4 h-4" />}
+                          {variance === 0 ? <CheckCircle2 className="w-4 h-4" /> : variance < 0 ? <Clock className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                           <span className="text-[10px] font-black uppercase tracking-[0.15em]">
-                            {variance === 0 ? 'Correcto' : variance < 0 ? 'Subconsumo' : 'Warning'}
+                            {variance === 0 ? 'Correcto' : variance < 0 ? 'Pendiente' : 'Excedido'}
                           </span>
                         </div>
-                        <span className="font-mono font-black text-sm">
-                          {variance > 0 ? '+' : ''}{variance.toFixed(1)} {item.unit}
-                        </span>
+                        <span className="font-mono font-black text-sm">{variance > 0 ? '+' : ''}{variance.toFixed(1)}</span>
                       </div>
                     </div>
                   </div>
@@ -186,7 +434,7 @@ export function ProductionExecutionPage() {
             })}
           </div>
 
-          {/* Sidebar Info */}
+          {/* Sidebar */}
           <div className="space-y-6">
             <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-[2rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none">
               <h4 className="text-xs font-black text-slate-900 dark:text-white mb-6 flex items-center gap-3 uppercase tracking-widest">
@@ -198,7 +446,7 @@ export function ProductionExecutionPage() {
               <div className="space-y-5">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">Total ítems</span>
-                  <span className="text-slate-900 dark:text-white font-black">{items.length}</span>
+                  <span className="text-slate-900 dark:text-white font-black">{order.items.length}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">Eficiencia Global</span>
@@ -221,13 +469,12 @@ export function ProductionExecutionPage() {
               <p className="text-xs text-indigo-900/60 dark:text-slate-300 font-medium leading-relaxed mb-8">
                 Al finalizar la orden, se generará un reporte inmutable con snapshot de inventario y firma digital del operario.
               </p>
-              
               <div className="space-y-4">
                 <div className="p-4 bg-white/50 dark:bg-slate-950/50 rounded-2xl border border-indigo-200 dark:border-white/10">
                   <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase font-black tracking-[0.2em] mb-2 px-1">Idempotency Token</p>
                   <p className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 truncate font-bold">{idempotencyKey}</p>
                 </div>
-                <button 
+                <button
                   onClick={() => navigate('/production/templates/new')}
                   className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-950 font-black rounded-2xl hover:bg-slate-800 dark:hover:bg-slate-100 transition-all active:scale-95 uppercase text-xs tracking-[0.2em] shadow-xl shadow-slate-900/10 dark:shadow-white/5"
                 >
@@ -239,7 +486,177 @@ export function ProductionExecutionPage() {
         </div>
       )}
 
-      {/* LEDGER VIEW */}
+      {/* ── REPORTS TAB ── */}
+      {activeTab === 'reports' && (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-in fade-in duration-400">
+
+          {/* Form */}
+          <div className="xl:col-span-2 space-y-6">
+
+            {/* No template state */}
+            {!hasTemplate && (
+              <div className="bg-white dark:bg-slate-900/60 border border-dashed border-slate-300 dark:border-white/10 rounded-[2rem] p-16 text-center shadow-sm">
+                <div className="w-16 h-16 mx-auto mb-6 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                  <Settings2 className="w-8 h-8 text-amber-500" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">Sin plantilla de reporte</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-8 max-w-xs mx-auto leading-relaxed">
+                  Esta OP no tiene una plantilla de calidad asignada. Configura una para habilitar los reportes de planta.
+                </p>
+                <button
+                  onClick={() => navigate('/production/templates/new')}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black text-sm transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
+                >
+                  <Settings2 className="w-4 h-4" />
+                  Crear Plantilla
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Dynamic form */}
+            {hasTemplate && (
+              <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-[2rem] overflow-hidden shadow-xl shadow-slate-200/40 dark:shadow-none">
+                {/* Form header */}
+                <div className="flex items-center justify-between p-8 pb-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-transparent">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-indigo-600/10 dark:bg-indigo-500/10 rounded-2xl border border-indigo-600/20 dark:border-indigo-500/20">
+                      <ClipboardCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-slate-900 dark:text-white">{template.name}</h3>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                        v{template.version || 1} • {totalFields} campos
+                      </p>
+                    </div>
+                  </div>
+                  {/* Progress pill */}
+                  <div className={`flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-widest ${
+                    reportProgress === 100
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                  }`}>
+                    {reportProgress === 100 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                    {reportProgress}% completado
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="h-1 bg-slate-100 dark:bg-slate-950">
+                  <div
+                    className="h-full bg-indigo-600 transition-all duration-500"
+                    style={{ width: `${reportProgress}%` }}
+                  />
+                </div>
+
+                {/* Fields */}
+                <div className="p-8 space-y-6">
+                  {template.fields.map((field: any) => (
+                    <QualityField
+                      key={field.id || field.name}
+                      field={field}
+                      value={reportValues[field.name]}
+                      onChange={(val) =>
+                        setReportValues((prev) => ({ ...prev, [field.name]: val }))
+                      }
+                      disabled={reportSubmitting || reportSuccess}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Error */}
+            {reportError && (
+              <div className="flex items-start gap-3 bg-rose-500/5 border border-rose-500/20 rounded-2xl px-5 py-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                <AlertCircle className="w-4 h-4 text-rose-500 mt-0.5 shrink-0" />
+                <p className="text-xs font-bold text-rose-600 dark:text-rose-400">{reportError}</p>
+              </div>
+            )}
+
+            {/* Success */}
+            {reportSuccess && (
+              <div className="flex items-center gap-3 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl px-5 py-4 animate-in fade-in duration-200">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">¡Reporte enviado y OP finalizada! Redirigiendo...</p>
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar: Firma */}
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-[2rem] p-8 shadow-xl shadow-slate-200/40 dark:shadow-none">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2.5 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-600/30">
+                  <Signature className="w-5 h-5 text-white" />
+                </div>
+                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Firma y Cierre</h4>
+              </div>
+
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-6">
+                Al firmar, el reporte queda sellado de forma inmutable en el ledger de producción.
+              </p>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <Lock className="w-3 h-3" />
+                    Responsable <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nombre del operario..."
+                    value={signedBy}
+                    onChange={(e) => { setSignedBy(e.target.value); setReportError(null); }}
+                    disabled={reportSubmitting || reportSuccess}
+                    className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500/60 focus:ring-4 focus:ring-indigo-500/5 transition-all disabled:opacity-50"
+                  />
+                </div>
+
+                {/* Token */}
+                <div className="p-4 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200 dark:border-white/10">
+                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-[0.2em] mb-1.5">Idempotency Token</p>
+                  <p className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 truncate font-bold">{idempotencyKey}</p>
+                </div>
+
+                {/* Checklist */}
+                <div className="space-y-2">
+                  {[
+                    { label: 'Consumos registrados', done: order.items.every((i: any) => (i.consumedQuantity || 0) > 0) },
+                    { label: 'Reporte completado', done: reportProgress === 100 },
+                    { label: 'Responsable asignado', done: signedBy.trim().length > 0 },
+                  ].map((check) => (
+                    <div key={check.label} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold ${
+                      check.done
+                        ? 'bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-slate-100 dark:bg-slate-950/40 text-slate-400'
+                    }`}>
+                      <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${check.done ? '' : 'opacity-30'}`} />
+                      {check.label}
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={handleReportSubmit}
+                  disabled={reportSubmitting || reportSuccess || !hasTemplate}
+                  className="w-full flex items-center justify-center gap-2 py-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm transition-all shadow-xl shadow-indigo-600/25 active:scale-95 uppercase tracking-widest"
+                >
+                  {reportSubmitting ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
+                  ) : reportSuccess ? (
+                    <><CheckCircle2 className="w-4 h-4" /> ¡Enviado!</>
+                  ) : (
+                    <><Signature className="w-4 h-4" /> Firmar y Finalizar</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── LEDGER TAB ── */}
       {activeTab === 'ledger' && (
         <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200/40 dark:shadow-none animate-in fade-in duration-500">
           <div className="p-8 border-b border-slate-100 dark:border-white/10 flex items-center justify-between bg-slate-50/50 dark:bg-transparent">
@@ -252,35 +669,44 @@ export function ProductionExecutionPage() {
               <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">En Línea</span>
             </div>
           </div>
-          
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-950/50">
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 dark:border-white/10">Evento</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 dark:border-white/10">Fecha y Hora</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 dark:border-white/10">Responsable</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 dark:border-white/10 text-right">Detalles</th>
+                  {['Evento', 'Fecha y Hora', 'Responsable', 'Detalles'].map((h, i) => (
+                    <th key={h} className={`px-8 py-5 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 dark:border-white/10 ${i === 3 ? 'text-right' : ''}`}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                {[
-                  { event: 'COMPLETED', time: '2024-04-24 15:30:01', user: 'Admin System', detail: 'Orden cerrada con reporte #882', color: 'text-emerald-600 dark:text-emerald-400' },
-                  { event: 'CONSUMED', time: '2024-04-24 14:15:22', user: 'Juan Perez', detail: 'Consumo: 800 Und de ACC-BOT-12', color: 'text-indigo-600 dark:text-indigo-400' },
-                  { event: 'CONSUMED', time: '2024-04-24 14:12:05', user: 'Juan Perez', detail: 'Consumo: 95 Mts de TEL-OXF-01', color: 'text-indigo-600 dark:text-indigo-400' },
-                  { event: 'CREATED', time: '2024-04-24 09:00:00', user: 'System Agent', detail: 'OP generada desde OS-8829', color: 'text-slate-600 dark:text-slate-300' },
-                ].map((log, i) => (
-                  <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group">
+                {ledger.map((log, i) => (
+                  <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
                     <td className="px-8 py-5">
-                      <span className={`text-[10px] font-black px-3 py-1 rounded-md bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 ${log.color}`}>
-                        {log.event}
+                      <span className={`text-[10px] font-black px-3 py-1 rounded-md bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 ${
+                        log.eventType === 'CREATED'  ? 'text-slate-600' :
+                        log.eventType === 'CONSUMED' ? 'text-indigo-600' : 'text-emerald-600'
+                      }`}>
+                        {log.eventType}
                       </span>
                     </td>
-                    <td className="px-8 py-5 text-xs font-mono text-slate-500 dark:text-slate-300 font-bold">{log.time}</td>
-                    <td className="px-8 py-5 text-xs font-black text-slate-900 dark:text-slate-100">{log.user}</td>
-                    <td className="px-8 py-5 text-xs text-slate-500 dark:text-slate-400 text-right italic font-medium">{log.detail}</td>
+                    <td className="px-8 py-5 text-xs font-mono text-slate-500 dark:text-slate-300 font-bold">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-8 py-5 text-xs font-black text-slate-900 dark:text-slate-100">
+                      {log.payload?.signedBy || 'Sistema'}
+                    </td>
+                    <td className="px-8 py-5 text-xs text-slate-500 dark:text-slate-400 text-right italic font-medium">
+                      {log.payload?.message || `Evento de producción: ${log.eventType}`}
+                    </td>
                   </tr>
                 ))}
+                {ledger.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-8 py-10 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
+                      Sin eventos registrados
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

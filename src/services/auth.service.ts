@@ -15,6 +15,7 @@ export interface AuthResponse {
   tenantId: string;
   email: string;
   role: string;
+  mustChangePassword: boolean;
 }
 
 export const AuthService = {

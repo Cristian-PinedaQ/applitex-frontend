@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Tenant, TenantCreateRequest, tenantsService } from "../../services/tenants.service";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useNavigate } from "react-router-dom";
-import { Building2, Plus, Search, Loader2, Edit3, Power, Calendar } from "lucide-react";
+import { Building2, Plus, Search, Loader2, Edit3, Power, Calendar, Zap } from "lucide-react";
 import TenantFormModal from "./components/TenantFormModal";
 import { SyncScope, TENANT_FIELD_POLICY } from '../../types/sync';
 import { syncEngine } from '../../lib/syncCore';
@@ -16,6 +16,7 @@ const TenantsPage = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "DELETED">("ACTIVE");
   
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const navigate = useNavigate();
@@ -60,9 +61,14 @@ const TenantsPage = () => {
     return () => controller.abort();
   }, []);
 
-  const handleCreateOrUpdate = async (data: TenantCreateRequest) => {
+  const handleCreateOrUpdate = async (data: TenantCreateRequest & { status?: string }) => {
     if (selectedTenant) {
-      await tenantsService.update(selectedTenant.id, { name: data.name });
+      await tenantsService.update(selectedTenant.id, { 
+        name: data.name, 
+        status: data.status,
+        adminEmail: data.adminEmail,
+        password: data.password
+      });
     } else {
       await tenantsService.create(data);
     }
@@ -74,10 +80,17 @@ const TenantsPage = () => {
     fetchTenants();
   };
 
-  const filteredTenants = tenants.filter(t => 
-    t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleActivate = async (id: string) => {
+    await tenantsService.activate(id);
+    fetchTenants();
+  };
+
+  const filteredTenants = tenants.filter(t => {
+    const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         t.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "ALL" || t.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const StatusBadge = ({ status }: { status: string }) => (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
@@ -128,17 +141,36 @@ const TenantsPage = () => {
 
       {/* Filtros */}
       <div className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-md p-4 md:p-6 rounded-[24px] md:rounded-[32px] border border-white dark:border-slate-800 shadow-xl shadow-slate-100/50 dark:shadow-none">
-        <div className="relative w-full max-w-md">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-indigo-50 dark:bg-slate-800 rounded-xl">
-            <Search className="w-4 h-4 text-indigo-600" />
+        <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
+          <div className="relative w-full max-w-md">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-indigo-50 dark:bg-slate-800 rounded-xl">
+              <Search className="w-4 h-4 text-indigo-600" />
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar organización..."
+              className="w-full pl-14 pr-4 py-3.5 md:py-4 bg-white dark:bg-slate-800 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none transition-all dark:text-white font-medium text-base h-[54px] md:h-auto"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Buscar organización..."
-            className="w-full pl-14 pr-4 py-3.5 md:py-4 bg-white dark:bg-slate-800 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none transition-all dark:text-white font-medium text-base h-[54px] md:h-auto"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+
+          {/* Selector de Estado Elite */}
+          <div className="flex bg-slate-100 dark:bg-slate-800/50 p-1.5 rounded-[20px] border border-slate-200 dark:border-slate-800 w-full md:w-auto">
+            {(['ALL', 'ACTIVE', 'DELETED'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`flex-1 md:flex-none px-6 py-2.5 rounded-[16px] text-[11px] font-black tracking-widest uppercase transition-all duration-300 ${
+                  statusFilter === s
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xl shadow-indigo-100/20 dark:shadow-none border border-indigo-50 dark:border-slate-600'
+                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                }`}
+              >
+                {s === 'ALL' ? 'Todas' : s === 'ACTIVE' ? 'Activas' : 'Inactivas'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -193,9 +225,17 @@ const TenantsPage = () => {
                       <button
                         onClick={() => { setSelectedTenant(tenant); setIsDeactivateOpen(true); }}
                         disabled={tenant.id === 'master' || tenant.status === 'DELETED'}
-                        className="p-3 bg-white dark:bg-slate-800 text-slate-400 hover:text-rose-600 rounded-xl shadow-lg shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 hover:border-rose-200 transition-all disabled:opacity-0"
+                        className={`p-3 bg-white dark:bg-slate-800 text-slate-400 hover:text-rose-600 rounded-xl shadow-lg shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 hover:border-rose-200 transition-all ${tenant.status === 'DELETED' ? 'hidden' : ''}`}
+                        title="Desactivar Empresa"
                       >
                         <Power className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleActivate(tenant.id)}
+                        className={`p-3 bg-white dark:bg-slate-800 text-slate-400 hover:text-emerald-600 rounded-xl shadow-lg shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 hover:border-emerald-200 transition-all ${tenant.status === 'ACTIVE' ? 'hidden' : ''}`}
+                        title="Reactivar Empresa"
+                      >
+                        <Zap className="w-4 h-4" />
                       </button>
                     </div>
                   </td>

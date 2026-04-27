@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { AuthService } from '../../services/auth.service';
-import { Mail, KeyRound, Building2, Loader2, ArrowRight } from 'lucide-react';
-import logo from '../../assets/logo.png';
+import { Mail, KeyRound, Building2, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import logo from '../../assets/logo.webp';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -19,6 +19,7 @@ export function LoginPage() {
   const [tenantId, setTenantId] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,11 +31,15 @@ export function LoginPage() {
     try {
       const response = await AuthService.login({ tenantId, email, password });
       
-      // Persistir in Zustand
-      login(response.token, response.tenantId, response.email, response.role);
+      // Persistir in Zustand (incluyendo el flag de cambio obligatorio)
+      login(response.token, response.tenantId, response.email, response.role, response.mustChangePassword);
       
-      // Entrar al Dashboard
-      navigate('/dashboard', { replace: true });
+      // Redirección condicional
+      if (response.mustChangePassword) {
+        navigate('/change-password', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err: any) {
       setError(
         err.response?.data?.message || err.message || 'Credenciales inválidas. Verifica tu Tenant e Email.'
@@ -108,13 +113,20 @@ export function LoginPage() {
                 <KeyRound className="h-5 w-5 text-slate-400" />
               </div>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
-                className="w-full pl-10 pr-4 py-3 bg-white/70 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all font-medium text-slate-800 placeholder-slate-400"
+                className="w-full pl-10 pr-12 py-3 bg-white/70 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all font-medium text-slate-800 placeholder-slate-400"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
           </div>
 

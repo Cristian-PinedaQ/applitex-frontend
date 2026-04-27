@@ -24,16 +24,25 @@ export interface ServiceOrderDetail {
 
 export interface ServiceOrder {
   id: string;
+
   customerId: string;
   customerName: string;
+
   orderNumber: string;
   status: OrderStatus;
+
   details: ServiceOrderDetail[];
+
   createdAt: string;
   updatedAt: string;
+
   createdBy: string;
   updatedBy: string;
+
   version: number;
+
+  // ✅ NUEVO (SAFE OPTIONAL - no rompe backend actual)
+  productionOrderId?: string;
 }
 
 export interface ServiceOrderDetailRequest {

@@ -90,6 +90,12 @@ api.interceptors.response.use(
       window.location.href = '/login';
     }
 
+    // Manejo de cambio de contraseña obligatorio (Security Enforcement)
+    if (error.response && error.response.status === 403 && error.response.data?.error === 'PASSWORD_CHANGE_REQUIRED') {
+      console.warn('🔐 [API] 403 Password Change Required. Redirecting to /change-password');
+      window.location.href = '/change-password';
+    }
+
     return Promise.reject(error);
   }
 );

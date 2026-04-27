@@ -17,7 +17,7 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useScrollRestoration } from '../../hooks/useScrollRestoration';
-import logo from '../../assets/logo.png';
+import logo from '../../assets/logo.webp';
 
 export function AppLayout() {
   const { logout, email, role, tenantId } = useAuthStore();

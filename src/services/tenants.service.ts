@@ -4,6 +4,7 @@ export interface Tenant {
   id: string;
   name: string;
   status: "ACTIVE" | "DELETED";
+  adminEmail: string;
   createdAt: string;
 }
 
@@ -11,6 +12,8 @@ export interface TenantCreateRequest {
   id: string;
   name: string;
   adminEmail: string;
+  password?: string;
+  status?: "ACTIVE" | "DELETED";
 }
 
 export const tenantsService = {
@@ -29,12 +32,16 @@ export const tenantsService = {
     return response.data;
   },
 
-  update: async (id: string, data: { name: string }) => {
+  update: async (id: string, data: { name: string; status?: string; adminEmail?: string; password?: string }) => {
     const response = await api.put<Tenant>(`/tenants/${id}`, data);
     return response.data;
   },
 
   delete: async (id: string) => {
     await api.delete(`/tenants/${id}`);
+  },
+
+  activate: async (id: string) => {
+    await api.patch(`/tenants/${id}/activate`);
   }
 };
