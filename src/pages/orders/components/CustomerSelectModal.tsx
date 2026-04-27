@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, User, Search, ArrowRight } from 'lucide-react';
-import { Customer } from '../../../types/customers';
+import { Customer } from '../../../types/customer';
 
 interface CustomerSelectModalProps {
   isOpen: boolean;
@@ -18,8 +18,8 @@ export const CustomerSelectModal: React.FC<CustomerSelectModalProps> = ({
   if (!isOpen) return null;
 
   const filtered = customers.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.documentId.includes(searchTerm)
+    c.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.document.includes(searchTerm)
   );
 
   return (
@@ -62,8 +62,8 @@ export const CustomerSelectModal: React.FC<CustomerSelectModalProps> = ({
                     <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400 group-hover:text-white transition-colors" />
                   </div>
                   <div className="text-left">
-                    <p className="font-black text-slate-900 dark:text-white">{customer.name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{customer.documentId}</p>
+                    <p className="font-black text-slate-900 dark:text-white">{customer.fullName}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{customer.document}</p>
                   </div>
                 </div>
                 <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-all translate-x-0 group-hover:translate-x-1" />

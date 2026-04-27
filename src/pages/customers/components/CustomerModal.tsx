@@ -1,5 +1,5 @@
 import { X, Save, AlertCircle } from 'lucide-react';
-import { Customer, CustomerRequest, DocumentType, CustomerType } from '../../../types/customer';
+import { Customer, CustomerRequest, DocumentType } from '../../../types/customer';
 import { useState, useEffect } from 'react';
 
 interface CustomerModalProps {

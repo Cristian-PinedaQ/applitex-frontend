@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft, ChevronRight, Loader2, Save, Trash2, Package, ArrowUpCircle, ArrowDownCircle,
-  Tag, Plus, X, Edit3, User, FolderOpen, DollarSign, History, AlertTriangle, RefreshCw, Zap
+  ChevronLeft, ChevronRight, Loader2, Save, Package, ArrowUpCircle, ArrowDownCircle,
+  Tag, Plus, X, History, AlertTriangle, RefreshCw, Zap
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { inventoryService } from '../../services/inventory.service';
 import { catalogService } from '../../services/catalog.service';
-import { customerService } from '../../services/customer.service';
-import { InventoryItem, InventoryItemRequest } from '../../types/inventory';
+
+// import { InventoryItem, InventoryItemRequest } from '../../types/inventory'; // Removed as unused
 import { Category } from '../../types/catalog';
-import { Customer } from '../../types/customer';
+
 import { InventoryMovement, ActiveReservation } from '../../types/inventory';
-import { useKeyboardVisible } from '../../hooks/useKeyboardVisible';
-import { useMediaQuery } from '../../hooks/useMediaQuery';
+
+// import { useMediaQuery } from '../../hooks/useMediaQuery'; // Removed as unused
 import { useInventoryOperations } from './hooks/useInventoryOperations';
 import { ConflictResolutionModal } from '../orders/components/ConflictResolutionModal';
 
@@ -33,7 +33,7 @@ const InventoryDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState<Category[]>([]);
-  const [customers, setCustomers]   = useState<Customer[]>([]);
+  // const [customers, setCustomers]   = useState<Customer[]>([]); // Removed as unused
   const [loading, setLoading]       = useState(!isNew);
   const [isConflictOpen, setIsConflictOpen] = useState(false);
   
@@ -54,17 +54,16 @@ const InventoryDetailPage: React.FC = () => {
   const [txType, setTxType]           = useState<'IN' | 'OUT' | 'ADJUST'>('IN');
   const [txReason, setTxReason]       = useState('');
 
-  const isKeyboardVisible = useKeyboardVisible();
-  const isDesktop = useMediaQuery('(min-width: 768px)');
+
+
 
   const loadInitialData = useCallback(async (signal?: AbortSignal) => {
     try {
-      const [cats, custs] = await Promise.all([
-        catalogService.getCategories(signal),
-        customerService.getAll(),
+      const [cats] = await Promise.all([
+        catalogService.getCategories(signal)
       ]);
       setCategories(cats);
-      setCustomers(custs);
+
 
       if (!isNew) {
         const data = await inventoryService.getInventoryById(id!, signal);
@@ -376,7 +375,7 @@ const InventoryDetailPage: React.FC = () => {
                     <History size={18} className="text-slate-400" />
                     <h4 className="font-black text-sm uppercase tracking-widest text-slate-400">Historial Ledger</h4>
                   </div>
-                  <button onClick={loadMovements} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                  <button onClick={() => loadMovements()} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
                     <RefreshCw size={14} className={`${loadingMovements ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
@@ -441,7 +440,7 @@ const InventoryDetailPage: React.FC = () => {
                     <Zap size={18} className="text-amber-500" />
                     <h4 className="font-black text-sm uppercase tracking-widest text-slate-400">Reservas de Órdenes</h4>
                   </div>
-                  <button onClick={loadReservations} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                  <button onClick={() => loadReservations()} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
                     <RefreshCw size={14} className={`${loadingReservations ? 'animate-spin' : ''}`} />
                   </button>
                 </div>

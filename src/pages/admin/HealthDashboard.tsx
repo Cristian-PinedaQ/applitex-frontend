@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, Shield, AlertCircle, Clock, Zap, BarChart3, AlertTriangle, Bell } from 'lucide-react';
-import { telemetryService, HealthMetrics } from '../../services/telemetry.service';
+import { Activity, Shield, Clock, Zap, BarChart3, AlertTriangle, Bell } from 'lucide-react';
+import { telemetryService } from '../../services/telemetry.service';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MetricCard = ({ title, value, icon: Icon, color, subtitle, isAlert }: any) => (

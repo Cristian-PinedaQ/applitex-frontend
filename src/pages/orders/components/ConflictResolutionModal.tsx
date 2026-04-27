@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, RefreshCw, Save, Info } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Save } from 'lucide-react';
 import { observability } from '../../../services/observability.service';
 
 interface ConflictResolutionModalProps {

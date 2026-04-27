@@ -1,4 +1,4 @@
-import { DollarSign, PackageOpen, Tag } from 'lucide-react';
+import { PackageOpen, Tag } from 'lucide-react';
 import { Product } from '../../../types/catalog';
 
 interface ProductCardProps {

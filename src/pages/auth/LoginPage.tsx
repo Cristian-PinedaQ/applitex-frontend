@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { AuthService } from '../../services/auth.service';
-import { ShieldCheck, Mail, KeyRound, Building2, Loader2, ArrowRight } from 'lucide-react';
+import { Mail, KeyRound, Building2, Loader2, ArrowRight } from 'lucide-react';
 import logo from '../../assets/logo.png';
 
 export function LoginPage() {

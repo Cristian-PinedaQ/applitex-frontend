@@ -19,7 +19,7 @@ const OrderDetailPage: React.FC = () => {
   // Usamos una tupla como clave para SWR, con fetcher defensivo para el segundo argumento (options)
   const { data: order, error: orderError, mutate: mutateOrder } = useSWR(
     id ? ['orders', id] : null,
-    ([, orderId], options) => ordersService.getById(orderId, options?.signal)
+    ([, orderId]: [string, string], { signal }: { signal: AbortSignal }) => ordersService.getById(orderId, signal)
   );
 
   const { data: categories } = useSWR('catalog/categories', () => catalogService.getCategories());
@@ -27,7 +27,7 @@ const OrderDetailPage: React.FC = () => {
   
   const { data: inventoryItems } = useSWR(
     order ? ['inventory', order.customerId] : null,
-    ([, customerId], options) => inventoryService.getInventoryByCustomer(customerId, options?.signal)
+    ([, customerId]: [string, string], { signal }: { signal: AbortSignal }) => inventoryService.getInventoryByCustomer(customerId, signal)
   );
 
   const { 

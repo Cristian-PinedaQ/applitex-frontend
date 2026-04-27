@@ -12,6 +12,12 @@ class SyncCore {
     'tenants:search': 0,
     'customers:list': 0,
     'customers:search': 0,
+    'catalog:list': 0,
+    'catalog:search': 0,
+    'inventory:list': 0,
+    'inventory:search': 0,
+    'orders:list': 0,
+    'orders:search': 0,
   };
 
   /**

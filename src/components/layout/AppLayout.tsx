@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { Drawer } from 'vaul';
 import { 
@@ -11,7 +11,6 @@ import {
   Users as TeamIcon, 
   Building2, 
   Menu,
-  X,
   Factory,
   Activity
 } from 'lucide-react';

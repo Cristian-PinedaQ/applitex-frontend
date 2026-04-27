@@ -92,9 +92,9 @@ export const useOrderOperations = () => {
       if (field === 'productId' && products) {
         const product = products.find(p => p.id === value);
         if (product) {
-          detail.price = product.basePrice || 0;
+          detail.price = product.price || 0;
           detail.attributes = product.attributes?.map(a => ({
-            attributeKey: a.name,
+            attributeKey: a.attributeKey,
             attributeValue: ''
           })) || [];
         }

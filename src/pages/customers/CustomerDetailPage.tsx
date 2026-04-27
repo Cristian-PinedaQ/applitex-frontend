@@ -17,7 +17,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Customer, CustomerRequest, CustomerType, DocumentType } from '../../types/customer';
+import { Customer, CustomerRequest, DocumentType } from '../../types/customer';
 import { InventoryItem } from '../../types/inventory';
 import { customerService } from '../../services/customer.service';
 import { inventoryService } from '../../services/inventory.service';

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
-import { Product, ProductRequest, Category, ProductAttribute, ProductAttributeRequest } from '../../../types/catalog';
+import { Product, ProductRequest, Category, ProductAttributeRequest } from '../../../types/catalog';
 import { catalogService } from '../../../services/catalog.service';
 
 interface ProductFormModalProps {

@@ -13,7 +13,7 @@ export const useInventoryOperations = (initialItem: InventoryItem | null) => {
   // ─── Track 1: Metadata (FSM) ──────────────────────────────────────────────
   const [item, setItem] = useState<InventoryItem | null>(initialItem);
   const [state, setState] = useState<SyncState>('IDLE');
-  const [lastSavedItem, setLastSavedItem] = useState<InventoryItem | null>(initialItem);
+  const [, setLastSavedItem] = useState<InventoryItem | null>(initialItem);
   
   // ─── Track 2: Stock (Transactional) ───────────────────────────────────────
   const [txState, setTxState] = useState<TransactionState>('IDLE');
@@ -21,7 +21,10 @@ export const useInventoryOperations = (initialItem: InventoryItem | null) => {
   const updateMetadata = useCallback((updates: Partial<InventoryItemRequest>) => {
     setItem(prev => {
       if (!prev) return prev;
-      const next = { ...prev, ...updates };
+      // Convertimos InventoryItemAttributeRequest[] a Partial<InventoryItemAttribute>[] si viene en updates
+      const safeUpdates = { ...updates } as any;
+      const next = { ...prev, ...safeUpdates } as InventoryItem;
+      
       if (state === 'IDLE' || state === 'SYNCED') {
         setState('DIRTY');
         observability.trackEvent('order_sync_fsm_transition', { from: state, to: 'DIRTY', module: 'inventory' });
@@ -42,10 +45,14 @@ export const useInventoryOperations = (initialItem: InventoryItem | null) => {
         name: item.name,
         detail: item.detail,
         price: item.price,
+        initialQuantity: item.initialQuantity,
         categoryId: item.categoryId,
         customerId: item.customerId,
         version: item.version,
-        attributes: item.attributes.map(a => ({ attributeKey: a.attributeKey, attributeValue: a.attributeValue }))
+        attributes: item.attributes.map(a => ({ 
+          attributeKey: a.attributeKey, 
+          attributeValue: a.attributeValue 
+        }))
       });
 
       setState('SYNCED');

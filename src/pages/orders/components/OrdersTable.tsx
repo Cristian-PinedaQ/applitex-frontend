@@ -14,6 +14,7 @@ interface OrdersTableProps {
 }
 
 const statusConfig: Record<OrderStatus, { label: string; color: string; icon: any }> = {
+  DRAFT: { label: 'Borrador', color: 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400', icon: Clock },
   CREATED: { label: 'Programada', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400', icon: Calendar },
   IN_PROGRESS: { label: 'En Proceso', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: PlayCircle },
   COMPLETED: { label: 'Finalizada', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', icon: CheckCircle2 },

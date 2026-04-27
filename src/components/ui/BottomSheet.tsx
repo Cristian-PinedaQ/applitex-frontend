@@ -1,5 +1,5 @@
 import { Drawer } from 'vaul';
-import { X } from 'lucide-react';
+
 import React from 'react';
 
 interface BottomSheetProps {

@@ -1,7 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
-  Play, 
-  CheckCircle2, 
   Clock, 
   AlertCircle, 
   Plus, 

@@ -1,4 +1,4 @@
-import { MoreVertical, Mail, Phone, MapPin, Edit2, Trash2 } from 'lucide-react';
+import { Mail, Phone, Edit2, Trash2 } from 'lucide-react';
 import { Customer } from '../../../types/customer';
 
 interface CustomerListProps {

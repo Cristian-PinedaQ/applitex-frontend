@@ -1,6 +1,4 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Trash2, DollarSign, Calculator, Layers, ClipboardList } from 'lucide-react';
+import { Trash2, DollarSign, Calculator, ClipboardList } from 'lucide-react';
 import { ServiceOrderDetailRequest } from '../../../types/orders';
 import { Category, Product } from '../../../types/catalog';
 import { InventoryItem } from '../../../types/inventory';

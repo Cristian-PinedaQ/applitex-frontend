@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
-  ArrowLeft, 
-  Save, 
+  ArrowLeft,  
   RotateCcw, 
   CheckCircle2, 
   AlertTriangle,
   Info,
   ChevronDown,
-  ChevronUp,
   FileText,
   Activity,
   History,
@@ -45,12 +43,11 @@ const MOCK_ORDER_DETAIL = {
 };
 
 export function ProductionExecutionPage() {
-  const { id } = useParams();
+  const {} = useParams();
   const navigate = useNavigate();
   const [items, setItems] = useState(MOCK_ORDER_DETAIL.items);
   const [activeTab, setActiveTab] = useState<'execution' | 'reports' | 'ledger'>('execution');
-  const [idempotencyKey, setIdempotencyKey] = useState(crypto.randomUUID());
-  const [correlationId, setCorrelationId] = useState(crypto.randomUUID());
+  const [idempotencyKey] = useState(crypto.randomUUID());
 
   const updateConsumed = (id: string, value: string) => {
     const numValue = parseFloat(value) || 0;
@@ -124,7 +121,6 @@ export function ProductionExecutionPage() {
           <div className="xl:col-span-2 space-y-4">
             {items.map((item) => {
               const variance = item.consumed - item.ordered;
-              const percent = (item.consumed / item.ordered) * 100;
 
               return (
                 <div key={item.id} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 hover:border-indigo-500/20 rounded-3xl p-8 transition-all shadow-xl shadow-slate-200/40 dark:shadow-none group">
