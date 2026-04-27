@@ -8,13 +8,19 @@ import logo from '../../assets/logo.webp';
 export function LoginPage() {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const mustChangePassword = useAuthStore((state) => state.mustChangePassword);
   const login = useAuthStore((state) => state.login);
 
+  // Redirección centralizada — se dispara cuando el store cambia
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      if (mustChangePassword) {
+        navigate('/change-password', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, mustChangePassword, navigate]);
 
   const [tenantId, setTenantId] = useState('');
   const [email, setEmail] = useState('');
@@ -25,21 +31,26 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validar formato email antes de enviar
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('El correo electrónico no es válido.');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await AuthService.login({ tenantId, email, password });
-      
-      // Persistir in Zustand (incluyendo el flag de cambio obligatorio)
+      const response = await AuthService.login({
+        tenantId: tenantId.trim().toLowerCase(),
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      // Solo persistir en store — el useEffect maneja la navegación
       login(response.token, response.tenantId, response.email, response.role, response.mustChangePassword);
-      
-      // Redirección condicional
-      if (response.mustChangePassword) {
-        navigate('/change-password', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
     } catch (err: any) {
       setError(
         err.response?.data?.message || err.message || 'Credenciales inválidas. Verifica tu Tenant e Email.'
@@ -55,9 +66,9 @@ export function LoginPage() {
       <div className="absolute top-[-10%] md:top-0 right-[-10%] md:right-0 w-[40rem] h-[40rem] bg-primary-100 rounded-full blur-[100px] opacity-60 pointer-events-none"></div>
       <div className="absolute bottom-[-10%] md:bottom-0 left-[-10%] md:left-0 w-[40rem] h-[40rem] bg-indigo-100 rounded-full blur-[100px] opacity-60 pointer-events-none"></div>
 
-      <div className="max-w-md w-full glass rounded-[2rem] p-8 md:p-10 text-center border border-white/50 shadow-2xl relative z-10 w-full transform transition-all">
+      <div className="max-w-md w-full glass rounded-[2rem] p-8 md:p-10 text-center border border-white/50 shadow-2xl relative z-10 transform transition-all">
         <img src={logo} alt="Applitex Logo" className="mx-auto w-40 h-40 object-contain mb-2 drop-shadow-2xl filter brightness-110" />
-        
+
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 mb-2">
           Bienvenido
         </h1>
@@ -81,10 +92,14 @@ export function LoginPage() {
               <input
                 type="text"
                 required
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 className="w-full pl-10 pr-4 py-3 bg-white/70 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all font-medium text-slate-800 placeholder-slate-400"
                 placeholder="ej: master"
                 value={tenantId}
-                onChange={(e) => setTenantId(e.target.value)}
+                onChange={(e) => setTenantId(e.target.value.trim().toLowerCase())}
               />
             </div>
           </div>
@@ -98,10 +113,14 @@ export function LoginPage() {
               <input
                 type="email"
                 required
+                autoComplete="email"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 className="w-full pl-10 pr-4 py-3 bg-white/70 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all font-medium text-slate-800 placeholder-slate-400"
                 placeholder="admin@applitex.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
               />
             </div>
           </div>
@@ -113,8 +132,9 @@ export function LoginPage() {
                 <KeyRound className="h-5 w-5 text-slate-400" />
               </div>
               <input
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
                 required
+                autoComplete="current-password"
                 className="w-full pl-10 pr-12 py-3 bg-white/70 border border-slate-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all font-medium text-slate-800 placeholder-slate-400"
                 placeholder="••••••••"
                 value={password}
@@ -148,7 +168,7 @@ export function LoginPage() {
 
         <div className="mt-8 pt-6 border-t border-slate-200/50 text-slate-500 text-sm">
           ¿No tienes un taller registrado?{' '}
-          <button 
+          <button
             onClick={() => navigate('/register')}
             className="font-bold text-primary-600 hover:text-primary-700 hover:underline transition-colors focus:outline-none"
           >
