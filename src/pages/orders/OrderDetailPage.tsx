@@ -21,8 +21,7 @@ const OrderDetailPage: React.FC = () => {
   // -------------------------
   const { data: order, error: orderError, mutate: mutateOrder } = useSWR(
     id ? ['orders', id] : null,
-    ([, orderId]: [string, string], { signal }: { signal?: AbortSignal }) =>
-  ordersService.getById(orderId, signal)
+    ([, orderId]: [string, string]) => ordersService.getById(orderId) // ✅ sin signal
   );
 
   // -------------------------
@@ -43,8 +42,7 @@ const OrderDetailPage: React.FC = () => {
   // -------------------------
   const { data: inventoryItems } = useSWR(
     order?.customerId ? ['inventory', order.customerId] : null,
-    ([, customerId]: [string, string], { signal }: { signal?: AbortSignal }) =>
-  inventoryService.getInventoryByCustomer(customerId, signal)
+    ([, customerId]: [string, string]) => inventoryService.getInventoryByCustomer(customerId) // ✅ sin signal
   );
 
   // -------------------------
