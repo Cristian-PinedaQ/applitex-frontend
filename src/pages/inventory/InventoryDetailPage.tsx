@@ -7,15 +7,13 @@ import {
 import { motion } from 'framer-motion';
 import { inventoryService } from '../../services/inventory.service';
 import { catalogService } from '../../services/catalog.service';
-import { customerService } from '../../services/customer.service'; // ← AGREGADO: Importar customerService
+import { customerService } from '../../services/customer.service';
 
-// import { InventoryItem, InventoryItemRequest } from '../../types/inventory'; // Removed as unused
 import { Category } from '../../types/catalog';
-import { Customer } from '../../types/customer'; // ← MODIFICADO: Importar desde customer en lugar de catalog
+import { Customer } from '../../types/customer';
 
 import { InventoryMovement, ActiveReservation } from '../../types/inventory';
 
-// import { useMediaQuery } from '../../hooks/useMediaQuery'; // Removed as unused
 import { useInventoryOperations } from './hooks/useInventoryOperations';
 import { ConflictResolutionModal } from '../orders/components/ConflictResolutionModal';
 
@@ -45,35 +43,32 @@ const InventoryDetailPage: React.FC = () => {
   const [reservations, setReservations] = useState<ActiveReservation[]>([]);
   const [loadingReservations, setLoadingReservations] = useState(false);
 
-  // Estado nuevo para autocomplete de cliente
+  // Estado para autocomplete de cliente
   const [customerQuery, setCustomerQuery] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-  // ─── Track 1 & 2: SyncCore Operations ─────────────────────────────────────────
-  const { 
-    item, state, txState, updateMetadata, saveMetadata, adjustStock, resolveConflict,
-    isDirty, isSaving 
-  } = useInventoryOperations(null);
+  // ─── FIX 1: Pasar el ID real al hook en lugar de null ──────────────────────
+  // ✅ Volver al original — el hook espera InventoryItem | null, no un string
+const { 
+  item, state, txState, updateMetadata, saveMetadata, adjustStock, resolveConflict,
+  isDirty, isSaving 
+} = useInventoryOperations(null);
 
   // ─── UI State para Stock Adjust ──────────────────────────────────────────────
   const [txAmount, setTxAmount]       = useState('');
   const [txType, setTxType]           = useState<'IN' | 'OUT' | 'ADJUST'>('IN');
   const [txReason, setTxReason]       = useState('');
 
-  // Filtrado en tiempo real
+  // Filtrado en tiempo real de clientes
   useEffect(() => {
     if (!customerQuery) {
       setFilteredCustomers([]);
       return;
     }
-
     const q = customerQuery.toLowerCase();
-
     setFilteredCustomers(
-      customers.filter(c =>
-        c.fullName.toLowerCase().includes(q)
-      )
+      customers.filter(c => c.fullName.toLowerCase().includes(q))
     );
   }, [customerQuery, customers]);
 
@@ -81,16 +76,15 @@ const InventoryDetailPage: React.FC = () => {
     try {
       const [cats, customersData] = await Promise.all([
         catalogService.getCategories(signal),
-        customerService.getAll(signal) // ← CORREGIDO: Usar customerService.getAll
+        customerService.getAll(signal),
       ]);
       setCategories(cats);
       setCustomers(customersData);
 
       if (!isNew) {
         const data = await inventoryService.getInventoryById(id!, signal);
-        resolveConflict(data); // Usamos resolveConflict para setear el item inicial sin activar DIRTY
+        resolveConflict(data);
       } else {
-        // Inicializar para nuevo item
         resolveConflict({
           id: '', name: '', detail: '', categoryId: '', categoryName: '',
           customerId: '', customerName: '', reference: '', price: 0,
@@ -139,30 +133,35 @@ const InventoryDetailPage: React.FC = () => {
     return () => ctrl.abort();
   }, [loadInitialData, loadMovements, loadReservations]);
 
-  // handleSaveMetadata con fix crítico
   const handleSaveMetadata = async () => {
-  const currentItem = item;
+    const currentItem = item;
 
-  if (!currentItem?.customerId && !selectedCustomer?.id) {
-    throw new Error("Debes seleccionar un cliente");
-  }
-
-  try {
-    const result = await saveMetadata();
-    if (isNew && result?.id) {
-      navigate(`/inventory/${result.id}`, { replace: true });
+    if (!currentItem?.customerId && !selectedCustomer?.id) {
+      alert('Debes seleccionar un cliente');
+      return;
     }
-  } catch (err: any) {
-    if (err.response?.status === 409) setIsConflictOpen(true);
-    else if (err.message === "Debes seleccionar un cliente") {
-      alert(err.message);
-    }
-  }
-};
 
+    try {
+      const result = await saveMetadata();
+      if (isNew && result?.id) {
+        navigate(`/inventory/${result.id}`, { replace: true });
+      }
+    } catch (err: any) {
+      if (err.response?.status === 409) setIsConflictOpen(true);
+      else alert(err.message || 'Error al guardar');
+    }
+  };
+
+  // ─── FIX 2: Guardia contra ID vacío antes de llamar al API ─────────────────
   const handleApplyStock = async () => {
-    const amount = parseInt(txAmount, 10);
-    if (!amount || !txReason) return;
+  const amount = parseInt(txAmount, 10);
+  if (!amount || !txReason) return;
+
+  if (!item?.id) {  // '' es falsy, atrapa el caso nuevo
+    alert('Guarda el ítem primero antes de registrar movimientos de stock.');
+    return;
+  }
+
     try {
       await adjustStock(txType === 'OUT' ? -amount : amount, txType, txReason);
       setTxAmount('');
@@ -180,9 +179,6 @@ const InventoryDetailPage: React.FC = () => {
   };
 
   const handleOverwrite = async () => {
-    // Para inventario, el overwrite de metadata es aceptable, 
-    // pero el stock se mantiene autoritativo.
-    // Implementaremos un force save si es necesario, por ahora solo reload.
     handleReload();
   };
 
@@ -196,7 +192,7 @@ const InventoryDetailPage: React.FC = () => {
   return (
     <>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-5xl mx-auto space-y-8 pb-32 md:pb-12 px-4">
-        {/* ─── Elite Header & Navigation ────────────────────────────────────── */}
+        {/* ─── Header & Navegación ─────────────────────────────────────────── */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
             <button 
@@ -225,7 +221,7 @@ const InventoryDetailPage: React.FC = () => {
           </div>
           
           <div className="flex gap-3">
-             <button
+            <button
               onClick={handleSaveMetadata}
               disabled={!isDirty || isSaving}
               className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black transition-all active:scale-95 disabled:opacity-50 ${
@@ -239,7 +235,7 @@ const InventoryDetailPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content: Metadata */}
+          {/* ─── Contenido Principal: Metadata ────────────────────────────── */}
           <div className="lg:col-span-2 space-y-8">
             <div className="bg-white dark:bg-slate-900 rounded-[40px] p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
               <div className="flex items-center gap-4 mb-8">
@@ -270,7 +266,7 @@ const InventoryDetailPage: React.FC = () => {
                       {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
-                   <div>
+                  <div>
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Precio</label>
                     <div className="relative">
                       <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-black">$</span>
@@ -280,20 +276,18 @@ const InventoryDetailPage: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* UI del campo (autocomplete básico) para cliente */}
+                  {/* Autocomplete de cliente */}
                   <div className="md:col-span-2">
                     <div className="relative">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
                         Cliente
                       </label>
-
                       <input
                         value={customerQuery}
                         onChange={(e) => setCustomerQuery(e.target.value)}
                         placeholder="Buscar cliente..."
                         className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 font-bold transition-all"
                       />
-
                       {filteredCustomers.length > 0 && (
                         <div className="absolute z-10 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl mt-2 shadow-lg max-h-60 overflow-auto">
                           {filteredCustomers.map(c => (
@@ -319,227 +313,238 @@ const InventoryDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Atributos (Metadatos) */}
+            {/* Atributos */}
             <div className="bg-white dark:bg-slate-900 rounded-[40px] p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
-               <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-purple-50 rounded-2xl text-purple-600"><Tag size={24} /></div>
-                    <h3 className="text-xl font-black">Especificaciones</h3>
-                  </div>
-                  <button onClick={() => updateMetadata({ attributes: [...item.attributes, { attributeKey: '', attributeValue: '' }] as any })}
-                    className="p-2 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-100 transition-all"
-                  >
-                    <Plus size={20} />
-                  </button>
-               </div>
-               <div className="space-y-3">
-                  {item.attributes.map((attr, idx) => (
-                    <div key={idx} className="flex gap-3 items-center">
-                      <input type="text" value={attr.attributeKey} placeholder="Clave"
-                        onChange={e => {
-                          const newAttrs = [...item.attributes];
-                          newAttrs[idx] = { ...newAttrs[idx], attributeKey: e.target.value };
-                          updateMetadata({ attributes: newAttrs as any });
-                        }}
-                        className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold text-xs"
-                      />
-                      <input type="text" value={attr.attributeValue} placeholder="Valor"
-                        onChange={e => {
-                          const newAttrs = [...item.attributes];
-                          newAttrs[idx] = { ...newAttrs[idx], attributeValue: e.target.value };
-                          updateMetadata({ attributes: newAttrs as any });
-                        }}
-                        className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold text-xs"
-                      />
-                      <button onClick={() => {
-                        const newAttrs = item.attributes.filter((_, i) => i !== idx);
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-purple-50 rounded-2xl text-purple-600"><Tag size={24} /></div>
+                  <h3 className="text-xl font-black">Especificaciones</h3>
+                </div>
+                <button onClick={() => updateMetadata({ attributes: [...item.attributes, { attributeKey: '', attributeValue: '' }] as any })}
+                  className="p-2 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-100 transition-all"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+              <div className="space-y-3">
+                {item.attributes.map((attr, idx) => (
+                  <div key={idx} className="flex gap-3 items-center">
+                    <input type="text" value={attr.attributeKey} placeholder="Clave"
+                      onChange={e => {
+                        const newAttrs = [...item.attributes];
+                        newAttrs[idx] = { ...newAttrs[idx], attributeKey: e.target.value };
                         updateMetadata({ attributes: newAttrs as any });
-                      }} className="text-slate-300 hover:text-rose-500 transition-colors">
-                        <X size={18} />
-                      </button>
-                    </div>
-                  ))}
-               </div>
+                      }}
+                      className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold text-xs"
+                    />
+                    <input type="text" value={attr.attributeValue} placeholder="Valor"
+                      onChange={e => {
+                        const newAttrs = [...item.attributes];
+                        newAttrs[idx] = { ...newAttrs[idx], attributeValue: e.target.value };
+                        updateMetadata({ attributes: newAttrs as any });
+                      }}
+                      className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold text-xs"
+                    />
+                    <button onClick={() => {
+                      const newAttrs = item.attributes.filter((_, i) => i !== idx);
+                      updateMetadata({ attributes: newAttrs as any });
+                    }} className="text-slate-300 hover:text-rose-500 transition-colors">
+                      <X size={18} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Sidebar: Stock (Ledger Operations) */}
+          {/* ─── Sidebar: Stock (Ledger Operations) ───────────────────────── */}
           <div className="space-y-8">
             <div className="bg-slate-900 rounded-[40px] p-8 text-white shadow-2xl relative overflow-hidden">
-               <div className="absolute -right-10 -top-10 opacity-10"><Zap size={200} /></div>
-               <div className="relative z-10">
-                   <div className="space-y-6 mb-8">
-                      <div className="flex flex-col gap-2">
-                        {/* Visual Stacked Bar Sidebar */}
-                        <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden flex shadow-inner border border-white/5">
-                          <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${(item.reservedQuantity / Math.max(item.finalQuantity, 1)) * 100}%` }}
-                            className="h-full bg-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.5)]" 
-                          />
-                          <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${(item.availableQuantity / Math.max(item.finalQuantity, 1)) * 100}%` }}
-                            className="h-full bg-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.5)]" 
-                          />
-                        </div>
-                        <div className="flex justify-between text-[8px] font-black uppercase tracking-[0.2em] text-white/40 px-1">
-                          <span>Comprometido vs Disponible</span>
-                          <span>Capacidad: {item.finalQuantity}</span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-white/5 p-4 rounded-2xl text-center border border-white/5 backdrop-blur-sm">
-                          <p className="text-[8px] font-black uppercase text-white/40 mb-1">Físico</p>
-                          <p className="text-2xl font-black tracking-tighter">{item.finalQuantity}</p>
-                        </div>
-                        <div className="bg-amber-500/10 p-4 rounded-2xl text-center border border-amber-500/20 backdrop-blur-sm">
-                          <p className="text-[8px] font-black uppercase text-amber-400 mb-1">Resv.</p>
-                          <p className="text-2xl font-black text-amber-400 tracking-tighter">{item.reservedQuantity}</p>
-                        </div>
-                        <div className="bg-emerald-500/10 p-4 rounded-2xl text-center border border-emerald-500/20 backdrop-blur-sm">
-                          <p className="text-[8px] font-black uppercase text-emerald-400 mb-1">Disp.</p>
-                          <p className="text-2xl font-black text-emerald-400 tracking-tighter">{item.availableQuantity}</p>
-                        </div>
-                      </div>
-                   </div>
-
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2">
-                       <select value={txType} onChange={e => setTxType(e.target.value as any)}
-                         className="bg-white/10 border border-white/10 rounded-2xl px-4 py-3 font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                       >
-                         <option value="IN" className="text-slate-900">Entrada</option>
-                         <option value="OUT" className="text-slate-900">Salida</option>
-                         <option value="ADJUST" className="text-slate-900">Ajuste</option>
-                       </select>
-                       <input type="number" placeholder="Cant." value={txAmount} onChange={e => setTxAmount(e.target.value)}
-                         className="bg-white/10 border border-white/10 rounded-2xl px-4 py-3 font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                       />
+              <div className="absolute -right-10 -top-10 opacity-10"><Zap size={200} /></div>
+              <div className="relative z-10">
+                <div className="space-y-6 mb-8">
+                  <div className="flex flex-col gap-2">
+                    <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden flex shadow-inner border border-white/5">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(item.reservedQuantity / Math.max(item.finalQuantity, 1)) * 100}%` }}
+                        className="h-full bg-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.5)]" 
+                      />
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(item.availableQuantity / Math.max(item.finalQuantity, 1)) * 100}%` }}
+                        className="h-full bg-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.5)]" 
+                      />
                     </div>
-                    <input type="text" placeholder="Motivo del movimiento..." value={txReason} onChange={e => setTxReason(e.target.value)}
-                       className="w-full bg-white/10 border border-white/10 rounded-2xl px-4 py-3 font-medium text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button 
-                      onClick={handleApplyStock}
-                      disabled={txState === 'PROCESSING' || !txAmount || !txReason}
-                      className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-2xl font-black transition-all active:scale-95 flex items-center justify-center gap-2"
-                    >
-                      {txState === 'PROCESSING' ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
-                      Registrar Movimiento
-                    </button>
-                    {txState === 'SUCCESS' && (
-                      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[10px] text-center font-black text-emerald-400 uppercase tracking-widest">
-                         ✓ Procesado correctamente
-                      </motion.p>
-                    )}
+                    <div className="flex justify-between text-[8px] font-black uppercase tracking-[0.2em] text-white/40 px-1">
+                      <span>Comprometido vs Disponible</span>
+                      <span>Capacidad: {item.finalQuantity}</span>
+                    </div>
                   </div>
-               </div>
-            </div>
 
-             {/* Auditoría del Ledger */}
-             <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-                <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <History size={18} className="text-slate-400" />
-                    <h4 className="font-black text-sm uppercase tracking-widest text-slate-400">Historial Ledger</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-white/5 p-4 rounded-2xl text-center border border-white/5 backdrop-blur-sm">
+                      <p className="text-[8px] font-black uppercase text-white/40 mb-1">Físico</p>
+                      <p className="text-2xl font-black tracking-tighter">{item.finalQuantity}</p>
+                    </div>
+                    <div className="bg-amber-500/10 p-4 rounded-2xl text-center border border-amber-500/20 backdrop-blur-sm">
+                      <p className="text-[8px] font-black uppercase text-amber-400 mb-1">Resv.</p>
+                      <p className="text-2xl font-black text-amber-400 tracking-tighter">{item.reservedQuantity}</p>
+                    </div>
+                    <div className="bg-emerald-500/10 p-4 rounded-2xl text-center border border-emerald-500/20 backdrop-blur-sm">
+                      <p className="text-[8px] font-black uppercase text-emerald-400 mb-1">Disp.</p>
+                      <p className="text-2xl font-black text-emerald-400 tracking-tighter">{item.availableQuantity}</p>
+                    </div>
                   </div>
-                  <button onClick={() => loadMovements()} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
-                    <RefreshCw size={14} className={`${loadingMovements ? 'animate-spin' : ''}`} />
-                  </button>
                 </div>
-                
-                <div className="max-h-[400px] overflow-y-auto">
-                  {movements.length === 0 ? (
-                    <div className="p-8 text-center">
-                      <p className="text-xs text-slate-400 italic">Sin movimientos registrados.</p>
+
+                {/* ─── FIX 3: Panel de movimientos deshabilitado para ítems nuevos ── */}
+                <div className="space-y-4">
+                  {isNew ? (
+                    <div className="flex flex-col items-center justify-center py-6 gap-3 opacity-50">
+                      <Zap size={28} className="text-white/40" />
+                      <p className="text-center text-[11px] text-white/50 italic leading-relaxed">
+                        Crea el ítem primero para<br />registrar movimientos de stock.
+                      </p>
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-50 dark:divide-slate-800">
-                      {movements.map((m) => {
-                        const config = TX_TYPE_CONFIG[m.type] || TX_TYPE_CONFIG.ADJUST;
-                        const Icon = config.icon;
-                        return (
-                          <div key={m.id} className="p-5 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all group">
-                            <div className="flex items-start gap-4">
-                              <div className={`p-3 rounded-2xl ${config.bg} ${config.color} shadow-sm group-hover:scale-110 transition-transform`}>
-                                <Icon size={16} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-start mb-1">
-                                  <div className="flex items-baseline gap-2">
-                                    <span className={`text-sm font-black tracking-tight ${config.color}`}>
-                                      {config.sign}{m.amount}
-                                    </span>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{config.label}</span>
-                                  </div>
-                                  <span className="text-[9px] font-bold text-slate-300 tabular-nums bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
-                                    {new Date(m.createdAt).toLocaleDateString()}
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select value={txType} onChange={e => setTxType(e.target.value as any)}
+                          className="bg-white/10 border border-white/10 rounded-2xl px-4 py-3 font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="IN" className="text-slate-900">Entrada</option>
+                          <option value="OUT" className="text-slate-900">Salida</option>
+                          <option value="ADJUST" className="text-slate-900">Ajuste</option>
+                        </select>
+                        <input type="number" placeholder="Cant." value={txAmount} onChange={e => setTxAmount(e.target.value)}
+                          className="bg-white/10 border border-white/10 rounded-2xl px-4 py-3 font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <input type="text" placeholder="Motivo del movimiento..." value={txReason} onChange={e => setTxReason(e.target.value)}
+                        className="w-full bg-white/10 border border-white/10 rounded-2xl px-4 py-3 font-medium text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button 
+                        onClick={handleApplyStock}
+                        disabled={txState === 'PROCESSING' || !txAmount || !txReason}
+                        className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-2xl font-black transition-all active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        {txState === 'PROCESSING' ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
+                        Registrar Movimiento
+                      </button>
+                      {txState === 'SUCCESS' && (
+                        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[10px] text-center font-black text-emerald-400 uppercase tracking-widest">
+                          ✓ Procesado correctamente
+                        </motion.p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Auditoría del Ledger */}
+            <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <History size={18} className="text-slate-400" />
+                  <h4 className="font-black text-sm uppercase tracking-widest text-slate-400">Historial Ledger</h4>
+                </div>
+                <button onClick={() => loadMovements()} disabled={isNew} className="p-2 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-30">
+                  <RefreshCw size={14} className={`${loadingMovements ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+              
+              <div className="max-h-[400px] overflow-y-auto">
+                {movements.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <p className="text-xs text-slate-400 italic">Sin movimientos registrados.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-50 dark:divide-slate-800">
+                    {movements.map((m) => {
+                      const config = TX_TYPE_CONFIG[m.type] || TX_TYPE_CONFIG.ADJUST;
+                      const Icon = config.icon;
+                      return (
+                        <div key={m.id} className="p-5 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all group">
+                          <div className="flex items-start gap-4">
+                            <div className={`p-3 rounded-2xl ${config.bg} ${config.color} shadow-sm group-hover:scale-110 transition-transform`}>
+                              <Icon size={16} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-start mb-1">
+                                <div className="flex items-baseline gap-2">
+                                  <span className={`text-sm font-black tracking-tight ${config.color}`}>
+                                    {config.sign}{m.amount}
                                   </span>
+                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{config.label}</span>
                                 </div>
-                                <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed italic border-l-2 border-slate-100 dark:border-slate-800 pl-3 my-2">
-                                  "{m.reason}"
-                                </p>
-                                <div className="mt-3 flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">Balance Post-Op:</span>
-                                    <span className="text-[10px] font-black text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">{m.finalQuantity}</span>
+                                <span className="text-[9px] font-bold text-slate-300 tabular-nums bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
+                                  {new Date(m.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed italic border-l-2 border-slate-100 dark:border-slate-800 pl-3 my-2">
+                                "{m.reason}"
+                              </p>
+                              <div className="mt-3 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">Balance Post-Op:</span>
+                                  <span className="text-[10px] font-black text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">{m.finalQuantity}</span>
+                                </div>
+                                {m.referenceRequestId && (
+                                  <div className="flex items-center gap-1 px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-[8px] font-black text-indigo-500 uppercase tracking-widest border border-indigo-100/50">
+                                    <RefreshCw size={8} className="animate-spin-slow" />
+                                    ID: {m.referenceRequestId.split('-')[0]}
                                   </div>
-                                  {m.referenceRequestId && (
-                                    <div className="flex items-center gap-1 px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-[8px] font-black text-indigo-500 uppercase tracking-widest border border-indigo-100/50">
-                                      <RefreshCw size={8} className="animate-spin-slow" />
-                                      ID: {m.referenceRequestId.split('-')[0]}
-                                    </div>
-                                  )}
-                                </div>
+                                )}
                               </div>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-             </div>
-
-             {/* Reservas Activas (SyncCore Drill-down) */}
-             <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-                <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Zap size={18} className="text-amber-500" />
-                    <h4 className="font-black text-sm uppercase tracking-widest text-slate-400">Reservas de Órdenes</h4>
-                  </div>
-                  <button onClick={() => loadReservations()} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
-                    <RefreshCw size={14} className={`${loadingReservations ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-                
-                <div className="p-4 space-y-3">
-                  {reservations.length === 0 ? (
-                    <p className="text-center py-4 text-xs text-slate-400 italic">No hay reservas comprometidas.</p>
-                  ) : (
-                    reservations.map((r) => (
-                      <div key={r.reservationId} 
-                        onClick={() => navigate(`/orders/${r.orderId}`)}
-                        className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-transparent hover:border-amber-200 dark:hover:border-amber-900/50 cursor-pointer transition-all group"
-                      >
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-xs font-black text-slate-900 dark:text-white">Orden #{r.orderNumber}</span>
-                          <span className="text-sm font-black text-amber-600">{r.quantity} uds.</span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-[10px] font-bold text-slate-500">{r.customerName}</p>
-                          <div className="flex items-center gap-1 text-[8px] font-black text-indigo-500 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span>Ver orden</span>
-                            <ArrowUpCircle size={10} className="rotate-45" />
-                          </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Reservas Activas */}
+            <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Zap size={18} className="text-amber-500" />
+                  <h4 className="font-black text-sm uppercase tracking-widest text-slate-400">Reservas de Órdenes</h4>
+                </div>
+                <button onClick={() => loadReservations()} disabled={isNew} className="p-2 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-30">
+                  <RefreshCw size={14} className={`${loadingReservations ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+              
+              <div className="p-4 space-y-3">
+                {reservations.length === 0 ? (
+                  <p className="text-center py-4 text-xs text-slate-400 italic">No hay reservas comprometidas.</p>
+                ) : (
+                  reservations.map((r) => (
+                    <div key={r.reservationId} 
+                      onClick={() => navigate(`/orders/${r.orderId}`)}
+                      className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-transparent hover:border-amber-200 dark:hover:border-amber-900/50 cursor-pointer transition-all group"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-black text-slate-900 dark:text-white">Orden #{r.orderNumber}</span>
+                        <span className="text-sm font-black text-amber-600">{r.quantity} uds.</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-slate-500">{r.customerName}</p>
+                        <div className="flex items-center gap-1 text-[8px] font-black text-indigo-500 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span>Ver orden</span>
+                          <ArrowUpCircle size={10} className="rotate-45" />
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
-             </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </motion.div>
