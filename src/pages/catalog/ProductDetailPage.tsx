@@ -190,7 +190,7 @@ const ProductDetailPage: React.FC = () => {
     (editData.quantity ?? 0) > 10 ? { label: 'Stock Disponible', color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-400' } :
     (editData.quantity ?? 0) > 0  ? { label: 'Stock Bajo', color: 'bg-amber-50 text-amber-700', dot: 'bg-amber-400 animate-pulse' } :
     { label: 'Sin Stock', color: 'bg-rose-50 text-rose-700', dot: 'bg-rose-400' };
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   void stockStatus; // used for display in other variants
 
   return (
