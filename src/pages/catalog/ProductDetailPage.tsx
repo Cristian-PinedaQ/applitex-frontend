@@ -190,6 +190,8 @@ const ProductDetailPage: React.FC = () => {
     (editData.quantity ?? 0) > 10 ? { label: 'Stock Disponible', color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-400' } :
     (editData.quantity ?? 0) > 0  ? { label: 'Stock Bajo', color: 'bg-amber-50 text-amber-700', dot: 'bg-amber-400 animate-pulse' } :
     { label: 'Sin Stock', color: 'bg-rose-50 text-rose-700', dot: 'bg-rose-400' };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void stockStatus; // used for display in other variants
 
   return (
     <>
@@ -231,7 +233,7 @@ const ProductDetailPage: React.FC = () => {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-3 btn-primary"
             >
               {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
               {isNew ? 'Crear Producto' : 'Guardar Cambios'}
@@ -312,7 +314,7 @@ const ProductDetailPage: React.FC = () => {
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl text-emerald-600">
                   <DollarSign className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-black text-slate-900 dark:text-white">Precio e Inventario</h3>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">Precio Sugerido</h3>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -334,7 +336,7 @@ const ProductDetailPage: React.FC = () => {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                    Cantidad en Stock
+                    Cantidad
                   </label>
                   <div className="relative">
                     <Boxes className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -472,40 +474,6 @@ const ProductDetailPage: React.FC = () => {
 
           {/* ─── Sidebar ─── */}
           <div className="space-y-8">
-
-            {/* Card: Estado de Stock */}
-            <div className={`bg-indigo-600 rounded-[40px] p-8 text-white shadow-2xl shadow-indigo-200 dark:shadow-none overflow-hidden relative`}>
-              <div className="absolute -right-10 -top-10 opacity-10">
-                <PackageOpen size={200} />
-              </div>
-              <div className="relative z-10 space-y-6">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Estado de Inventario</p>
-                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-sm bg-white/10`}>
-                    <div className={`w-2.5 h-2.5 rounded-full ${stockStatus.dot}`} />
-                    <span className="font-black text-white">{stockStatus.label}</span>
-                  </div>
-                </div>
-
-                <div className="py-6 border-t border-white/10 space-y-4">
-                  <div className="flex justify-between items-baseline">
-                    <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">Precio</span>
-                    <span className="text-xl font-black">${editData.price.toLocaleString('es-CO')}</span>
-                  </div>
-                  <div className="flex justify-between items-baseline">
-                    <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">Stock</span>
-                    <span className="text-xl font-black">{editData.quantity} uds.</span>
-                  </div>
-                  {!isNew && (
-                    <div className="flex justify-between items-baseline pt-4 border-t border-white/10">
-                      <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">Valor Total</span>
-                      <span className="text-2xl font-black">${(editData.price * editData.quantity).toLocaleString('es-CO')}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
             {/* Card: Categoría asignada */}
             {!isNew && (
               <div className="bg-white dark:bg-slate-900 rounded-[40px] p-8 shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800">

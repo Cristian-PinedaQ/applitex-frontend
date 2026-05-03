@@ -110,7 +110,7 @@ export function ProductionOrdersPage() {
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-3 bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-2xl font-black transition-all shadow-2xl shadow-indigo-600/30 active:scale-95 group"
+            className="btn-primary"
           >
             <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
             Nueva OP desde OS
@@ -194,7 +194,7 @@ export function ProductionOrdersPage() {
           {!searchTerm && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black text-sm transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
+              className="btn-primary"
             >
               <Plus className="w-4 h-4" /> Crear primera OP
             </button>

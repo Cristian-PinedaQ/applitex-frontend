@@ -10,134 +10,18 @@ import {
   Activity,
   History,
   Signature,
-  ClipboardCheck,
   Settings2,
-  ChevronRight,
   Lock,
-  Hash,
-  Type,
-  ToggleLeft,
-  Calendar,
-  List as ListIcon,
   AlertCircle,
-  Loader2
+  Loader2,
+  FileEdit,
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ProductionService } from '../../services/production.service';
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-const fieldTypeIcon: Record<string, any> = {
-  TEXT: Type,
-  NUMBER: Hash,
-  SELECT: ListIcon,
-  BOOLEAN: ToggleLeft,
-  DATE: Calendar,
-};
-
-function QualityField({
-  field,
-  value,
-  onChange,
-  disabled,
-}: {
-  field: any;
-  value: any;
-  onChange: (val: any) => void;
-  disabled?: boolean;
-}) {
-  const Icon = fieldTypeIcon[field.type] || Type;
-  const base =
-    'w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500/60 focus:ring-4 focus:ring-indigo-500/5 transition-all disabled:opacity-50';
-
-  return (
-    <div className="space-y-2">
-      <label className="flex items-center gap-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-        <Icon className="w-3.5 h-3.5" />
-        {field.name}
-        {field.required && <span className="text-red-500">*</span>}
-      </label>
-
-      {field.type === 'TEXT' && (
-        <input
-          type="text"
-          disabled={disabled}
-          placeholder={`Ingresa ${field.name.toLowerCase()}...`}
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-          className={base}
-        />
-      )}
-
-      {field.type === 'NUMBER' && (
-        <input
-          type="number"
-          disabled={disabled}
-          placeholder="0"
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
-          className={base}
-        />
-      )}
-
-      {field.type === 'DATE' && (
-        <input
-          type="date"
-          disabled={disabled}
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-          className={base}
-        />
-      )}
-
-      {field.type === 'BOOLEAN' && (
-        <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 rounded-xl">
-          <button
-            disabled={disabled}
-            onClick={() => onChange(true)}
-            className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-              value === true
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
-                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'
-            } disabled:opacity-50`}
-          >
-            Sí
-          </button>
-          <button
-            disabled={disabled}
-            onClick={() => onChange(false)}
-            className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-              value === false
-                ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20'
-                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'
-            } disabled:opacity-50`}
-          >
-            No
-          </button>
-        </div>
-      )}
-
-      {field.type === 'SELECT' && Array.isArray(field.options) && (
-        <div className="flex flex-wrap gap-2">
-          {field.options.map((opt: string) => (
-            <button
-              key={opt}
-              disabled={disabled}
-              onClick={() => onChange(opt)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border transition-all ${
-                value === opt
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20'
-                  : 'bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:border-indigo-500/40'
-              } disabled:opacity-50`}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import { toast } from 'react-hot-toast';
+import { DynamicFormRenderer } from '../../components/common/DynamicFormRenderer';
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
@@ -153,16 +37,42 @@ export function ProductionExecutionPage() {
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(crypto.randomUUID());
 
-  // ── Report state ──
-  const [reportValues, setReportValues] = useState<Record<string, any>>({});
-  const [signedBy, setSignedBy] = useState('');
-  const [reportSubmitting, setReportSubmitting] = useState(false);
-  const [reportSuccess, setReportSuccess] = useState(false);
+  // ── Report state por item ──
+  const [itemsData, setItemsData] = useState<Record<string, Record<string, any>>>({});
+  const [signedBy, setSignedBy] = useState<string>('');
+  const [reportSubmitting, setReportSubmitting] = useState<boolean>(false);
+  const [reportSuccess, setReportSuccess] = useState<boolean>(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [showServiceOrderDetail, setShowServiceOrderDetail] = useState(false);
+  const [serviceOrderData, setServiceOrderData] = useState<any>(null);
+  const [isLoadingServiceOrder, setIsLoadingServiceOrder] = useState(false);
 
   useEffect(() => {
     if (id) loadData();
   }, [id]);
+
+  useEffect(() => {
+    if (order?.items) {
+      const initial: Record<string, Record<string, any>> = {};
+      order.items.forEach((item: any) => {
+        initial[item.id] = item.filledData || {};
+      });
+      setItemsData(initial);
+    }
+  }, [order]);
+
+  useEffect(() => {
+    if (showServiceOrderDetail && order?.id) {
+      setIsLoadingServiceOrder(true);
+      ProductionService.getServiceOrderInfo(order.id)
+        .then(setServiceOrderData)
+        .catch(err => {
+          console.error('Error loading service order:', err);
+          toast.error('Error al cargar detalle de orden de servicio');
+        })
+        .finally(() => setIsLoadingServiceOrder(false));
+    }
+  }, [showServiceOrderDetail, order?.id]);
 
   const loadData = async (silent = false) => {
     try {
@@ -208,18 +118,39 @@ export function ProductionExecutionPage() {
     }
   };
 
+  // ── Handlers ──
+  const handleItemChange = (itemId: string, data: Record<string, any>) => {
+    setItemsData((prev: Record<string, Record<string, any>>) => ({
+      ...prev,
+      [itemId]: data
+    }));
+  };
+
   // ── Report submit ──
   const handleReportSubmit = async () => {
     if (!order) return;
 
-    const template = order.template;
-    if (template?.fields) {
-      const missing = template.fields
-        .filter((f: any) => f.required && (reportValues[f.name] === undefined || reportValues[f.name] === ''))
-        .map((f: any) => f.name);
-      if (missing.length > 0) {
-        setReportError(`Campos obligatorios: ${missing.join(', ')}`);
-        return;
+    // Validar campos requeridos por cada item (maneja 0 y false como válidos)
+    for (const item of order.items) {
+      const template = item.templateSnapshot;
+      
+      // 🧨 Opcional: bloquear items sin plantilla (descomenta si es necesario)
+      // if (!template?.fields) {
+      //   throw new Error(`Ítem "${item.productSnapshot?.name}" no tiene plantilla`);
+      // }
+      
+      if (!template?.fields) continue;
+      
+      const data = itemsData[item.id] || item.filledData || {};
+      
+      for (const field of template.fields) {
+        if (field.required) {
+          const value = data[field.name];
+          if (value === undefined || value === null || value === '') {
+            setReportError(`Campo requerido en "${item.productSnapshot?.name}": ${field.name}`);
+            return;
+          }
+        }
       }
     }
 
@@ -232,9 +163,14 @@ export function ProductionExecutionPage() {
     setReportError(null);
 
     try {
+      // 📦 Payload limpio - solo id y filledData
+      const itemsPayload = order.items.map((item: any) => ({
+        id: item.id,
+        filledData: itemsData[item.id] || item.filledData || {}
+      }));
+
       await ProductionService.completeProduction(order.id, {
-        templateId: template?.id || 'default-template',
-        values: reportValues,
+        items: itemsPayload,
         signedBy: signedBy.trim(),
         idempotencyKey: crypto.randomUUID(),
         correlationId: `complete-${order.id}-${Date.now()}`,
@@ -249,7 +185,6 @@ export function ProductionExecutionPage() {
   };
 
   const handleComplete = async () => {
-    // Redirect to reports tab so they fill the form first
     setActiveTab('reports');
   };
 
@@ -266,13 +201,7 @@ export function ProductionExecutionPage() {
 
   if (!order) return null;
 
-  const template = order.template;
-  const hasTemplate = template && Array.isArray(template.fields) && template.fields.length > 0;
-  const completedFields = hasTemplate
-    ? template.fields.filter((f: any) => reportValues[f.name] !== undefined && reportValues[f.name] !== '').length
-    : 0;
-  const totalFields = hasTemplate ? template.fields.length : 0;
-  const reportProgress = totalFields > 0 ? Math.round((completedFields / totalFields) * 100) : 0;
+  const hasAnyTemplate = order?.items?.some?.((item: any) => item.templateSnapshot?.fields?.length > 0);
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-700 pb-12">
@@ -294,7 +223,13 @@ export function ProductionExecutionPage() {
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
               Ref: <span className="text-indigo-600 dark:text-indigo-400 font-mono font-black">{order.id.substring(0, 8)}</span> • Vinculada a{' '}
-              <span className="text-indigo-600 dark:text-indigo-500 font-bold">{order.serviceOrder.orderNumber}</span>
+              <button 
+                onClick={() => setShowServiceOrderDetail(true)}
+                className="text-indigo-600 dark:text-indigo-500 font-bold hover:underline inline-flex items-center gap-1"
+              >
+                #{order.serviceOrder.orderNumber}
+                <ExternalLink className="w-3 h-3" />
+              </button>
             </p>
           </div>
         </div>
@@ -352,13 +287,9 @@ export function ProductionExecutionPage() {
           >
             <tab.icon className="w-4 h-4" />
             {tab.label}
-            {tab.id === 'reports' && totalFields > 0 && (
-              <span className={`ml-1 text-[9px] font-black px-2 py-0.5 rounded-full ${
-                reportProgress === 100
-                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
-              }`}>
-                {completedFields}/{totalFields}
+            {tab.id === 'reports' && hasAnyTemplate && (
+              <span className="ml-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                !
               </span>
             )}
           </button>
@@ -490,81 +421,58 @@ export function ProductionExecutionPage() {
       {activeTab === 'reports' && (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-in fade-in duration-400">
 
-          {/* Form */}
+          {/* Forms por item */}
           <div className="xl:col-span-2 space-y-6">
+            {order.items.map((item: any) => {
+              const template = item.templateSnapshot;
+              const hasTemplate = template && Array.isArray(template.fields) && template.fields.length > 0;
+              const filledData = itemsData[item.id] || item.filledData || {};
+              const completedFields = hasTemplate
+                ? template.fields.filter((f: any) => filledData[f.name] !== undefined && filledData[f.name] !== '').length
+                : 0;
+              const totalFields = hasTemplate ? template.fields.length : 0;
+              const progress = totalFields > 0 ? Math.round((completedFields / totalFields) * 100) : 0;
 
-            {/* No template state */}
-            {!hasTemplate && (
-              <div className="bg-white dark:bg-slate-900/60 border border-dashed border-slate-300 dark:border-white/10 rounded-[2rem] p-16 text-center shadow-sm">
-                <div className="w-16 h-16 mx-auto mb-6 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                  <Settings2 className="w-8 h-8 text-amber-500" />
-                </div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">Sin plantilla de reporte</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-8 max-w-xs mx-auto leading-relaxed">
-                  Esta OP no tiene una plantilla de calidad asignada. Configura una para habilitar los reportes de planta.
-                </p>
-                <button
-                  onClick={() => navigate('/production/templates/new')}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black text-sm transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
-                >
-                  <Settings2 className="w-4 h-4" />
-                  Crear Plantilla
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
-            {/* Dynamic form */}
-            {hasTemplate && (
-              <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-[2rem] overflow-hidden shadow-xl shadow-slate-200/40 dark:shadow-none">
-                {/* Form header */}
-                <div className="flex items-center justify-between p-8 pb-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-transparent">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-indigo-600/10 dark:bg-indigo-500/10 rounded-2xl border border-indigo-600/20 dark:border-indigo-500/20">
-                      <ClipboardCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <div>
-                      <h3 className="font-black text-slate-900 dark:text-white">{template.name}</h3>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                        v{template.version || 1} • {totalFields} campos
-                      </p>
+              return (
+                <div key={item.id} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-[2rem] overflow-hidden shadow-xl shadow-slate-200/40 dark:shadow-none">
+                  {/* Card header */}
+                  <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-transparent">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-indigo-600/10 dark:bg-indigo-500/10 rounded-xl border border-indigo-600/20 dark:border-indigo-500/20">
+                        <FileEdit className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-slate-900 dark:text-white">
+                          {item.productSnapshot?.name || 'Producto'}
+                        </h3>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">
+                          {hasTemplate ? `${progress}% completado` : 'Sin plantilla'}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  {/* Progress pill */}
-                  <div className={`flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-widest ${
-                    reportProgress === 100
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
-                  }`}>
-                    {reportProgress === 100 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-                    {reportProgress}% completado
+
+                  {/* Form content */}
+                  <div className="p-6">
+                    {!hasTemplate ? (
+                      <div className="text-center py-8 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
+                        <Settings2 className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          Este ítem no tiene plantilla configurada
+                        </p>
+                      </div>
+                    ) : (
+                      <DynamicFormRenderer
+                        templateSnapshot={template}
+                        filledData={filledData}
+                        onChange={(data) => handleItemChange(item.id, data)}
+                        disabled={reportSubmitting || reportSuccess}
+                      />
+                    )}
                   </div>
                 </div>
-
-                {/* Progress bar */}
-                <div className="h-1 bg-slate-100 dark:bg-slate-950">
-                  <div
-                    className="h-full bg-indigo-600 transition-all duration-500"
-                    style={{ width: `${reportProgress}%` }}
-                  />
-                </div>
-
-                {/* Fields */}
-                <div className="p-8 space-y-6">
-                  {template.fields.map((field: any) => (
-                    <QualityField
-                      key={field.id || field.name}
-                      field={field}
-                      value={reportValues[field.name]}
-                      onChange={(val) =>
-                        setReportValues((prev) => ({ ...prev, [field.name]: val }))
-                      }
-                      disabled={reportSubmitting || reportSuccess}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })}
 
             {/* Error */}
             {reportError && (
@@ -622,9 +530,13 @@ export function ProductionExecutionPage() {
                 {/* Checklist */}
                 <div className="space-y-2">
                   {[
-                    { label: 'Consumos registrados', done: order.items.every((i: any) => (i.consumedQuantity || 0) > 0) },
-                    { label: 'Reporte completado', done: reportProgress === 100 },
-                    { label: 'Responsable asignado', done: signedBy.trim().length > 0 },
+                    { label: 'Formularios llenados', done: order.items.every((i: any) => {
+                      const t = i.templateSnapshot;
+                      if (!t?.fields?.length) return true;
+                      const d = itemsData[i.id] || i.filledData || {};
+                      return t.fields.every((f: any) => d[f.name] !== undefined && d[f.name] !== '');
+                    })},
+                    { label: 'Responsable asignado', done: !!signedBy.trim() },
                   ].map((check) => (
                     <div key={check.label} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold ${
                       check.done
@@ -639,8 +551,8 @@ export function ProductionExecutionPage() {
 
                 <button
                   onClick={handleReportSubmit}
-                  disabled={reportSubmitting || reportSuccess || !hasTemplate}
-                  className="w-full flex items-center justify-center gap-2 py-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm transition-all shadow-xl shadow-indigo-600/25 active:scale-95 uppercase tracking-widest"
+                  disabled={reportSubmitting || reportSuccess}
+                  className="btn-primary"
                 >
                   {reportSubmitting ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
@@ -709,6 +621,204 @@ export function ProductionExecutionPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Detalle Orden de Servicio ── */}
+      {showServiceOrderDetail && order?.id && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 dark:bg-black/70" onClick={() => setShowServiceOrderDetail(false)} />
+          <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl max-h-[85vh] overflow-auto rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10">
+            {isLoadingServiceOrder ? (
+              <div className="flex items-center justify-center p-12">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+              </div>
+            ) : serviceOrderData ? (
+              <>
+                <div className="sticky top-0 flex items-center justify-between p-6 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 z-10">
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white">Orden de Servicio</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                      #{serviceOrderData.orderInfo?.orderNumber}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 text-xs font-black uppercase rounded-lg ${
+                      serviceOrderData.orderInfo?.status === 'COMPLETED' 
+                        ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                        : serviceOrderData.orderInfo?.status === 'CANCELLED'
+                        ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                        : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400'
+                    }`}>
+                      {serviceOrderData.orderInfo?.status || '—'}
+                    </span>
+                    <button
+                      onClick={() => setShowServiceOrderDetail(false)}
+                      className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+                    >
+                      <X className="w-5 h-5 text-slate-500" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* 📌 Sección 1: Información General */}
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Información General</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-slate-500">Fecha Creación</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">
+                          {serviceOrderData.audit?.createdAt 
+                            ? new Date(serviceOrderData.audit.createdAt).toLocaleString() 
+                            : '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Fecha Completada</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">
+                          {serviceOrderData.orderInfo?.completedAt 
+                            ? new Date(serviceOrderData.orderInfo.completedAt).toLocaleString() 
+                            : '—'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 👤 Sección 2: Cliente */}
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Datos del Cliente</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-slate-500">Nombre</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">
+                          {serviceOrderData.customer?.fullName || '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Documento</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">
+                          {serviceOrderData.customer?.documentType && (
+                            <span className="text-slate-500 mr-1">{serviceOrderData.customer.documentType}</span>
+                          )}
+                          {serviceOrderData.customer?.document || '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Teléfono</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">
+                          {serviceOrderData.customer?.phone || '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Email</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">
+                          {serviceOrderData.customer?.email || '—'}
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-xs text-slate-500">Dirección</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">
+                          {serviceOrderData.customer?.address || '—'}
+                          {serviceOrderData.customer?.city && `, ${serviceOrderData.customer.city}`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 📦 Sección 3: Detalles */}
+                  <div>
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Detalles ({serviceOrderData.details?.length || 0})</h3>
+                    <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-100 dark:bg-slate-800/50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-black text-slate-500">Categoría</th>
+                            <th className="px-3 py-2 text-left text-xs font-black text-slate-500">Producto</th>
+                            <th className="px-3 py-2 text-right text-xs font-black text-slate-500">Cant.</th>
+                            <th className="px-3 py-2 text-right text-xs font-black text-slate-500">Precio</th>
+                            <th className="px-3 py-2 text-right text-xs font-black text-slate-500">Total</th>
+                            <th className="px-3 py-2 text-left text-xs font-black text-slate-500">Inventario</th>
+                            <th className="px-3 py-2 text-right text-xs font-black text-slate-500">Usado</th>
+                            <th className="px-3 py-2 text-left text-xs font-black text-slate-500">Reserva ID</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(serviceOrderData.details || []).map((detail: any, idx: number) => (
+                            <tr key={detail.id || idx} className="border-t border-slate-200 dark:border-white/5">
+                              <td className="px-3 py-2 text-slate-900 dark:text-white">{detail.categoryName || '—'}</td>
+                              <td className="px-3 py-2 text-slate-900 dark:text-white">{detail.productName || '—'}</td>
+                              <td className="px-3 py-2 text-right text-slate-900 dark:text-white">{detail.quantity ?? '—'}</td>
+                              <td className="px-3 py-2 text-right text-slate-900 dark:text-white">
+                                {detail.price ? `$${Number(detail.price).toLocaleString()}` : '—'}
+                              </td>
+                              <td className="px-3 py-2 text-right font-bold text-slate-900 dark:text-white">
+                                {detail.totalValue ? `$${Number(detail.totalValue).toLocaleString()}` : '—'}
+                              </td>
+                              <td className="px-3 py-2 text-slate-900 dark:text-white">
+                                {detail.inventoryItemName || '—'}
+                              </td>
+                              <td className="px-3 py-2 text-right text-slate-900 dark:text-white">
+                                {detail.usedInventoryQuantity != null 
+                                  ? Number(detail.usedInventoryQuantity).toLocaleString() 
+                                  : '0'}
+                              </td>
+                              <td className="px-3 py-2 text-slate-500 font-mono text-xs">
+                                {detail.reservationRequestId || '—'}
+                              </td>
+                            </tr>
+                          ))}
+                          {(serviceOrderData.details || []).length === 0 && (
+                            <tr>
+                              <td colSpan={8} className="px-3 py-4 text-center text-slate-500">Sin detalles</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* 🕓 Sección 4: Auditoría */}
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Auditoría</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-slate-500">Creado por</p>
+                        <p className="font-bold text-slate-900 dark:text-white">{serviceOrderData.audit?.createdBy || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Última actualización</p>
+                        <p className="font-bold text-slate-900 dark:text-white">
+                          {serviceOrderData.audit?.updatedAt 
+                            ? new Date(serviceOrderData.audit.updatedAt).toLocaleString()
+                            : '—'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="sticky bottom-0 flex justify-end p-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/50">
+                  <button
+                    onClick={() => setShowServiceOrderDetail(false)}
+                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="p-6 text-center">
+                <p className="text-slate-500">No se pudieron cargar los datos</p>
+                <button
+                  onClick={() => setShowServiceOrderDetail(false)}
+                  className="mt-4 px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-lg text-sm font-bold"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

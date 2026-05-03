@@ -278,7 +278,7 @@ export function CreateProductionOrderModal({
             <button
               onClick={handleSubmit}
               disabled={loading || success || !serviceOrderId}
-              className="flex-1 py-3 rounded-xl bg-indigo-600 text-white"
+              className="btn-primary flex-1"
             >
               {loading ? 'Creando...' : 'Crear OP'}
             </button>

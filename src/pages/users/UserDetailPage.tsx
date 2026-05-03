@@ -165,7 +165,7 @@ const UserDetailPage: React.FC = () => {
            <button 
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-3 btn-primary"
            >
               {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
               Guardar Cambios

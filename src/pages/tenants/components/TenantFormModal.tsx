@@ -237,7 +237,7 @@ const TenantFormModal = ({ isOpen, onClose, onSubmit, tenant }: TenantFormModalP
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 px-4 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 active:scale-95 transition-all disabled:opacity-50"
+                className="btn-primary flex-1"
               >
                 {loading ? "Guardando..." : tenant ? "Guardar Cambios" : "Crear Empresa"}
               </button>

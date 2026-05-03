@@ -36,6 +36,13 @@ export const catalogService = {
     const res = await api.get<Product>(`products/${id}`, { signal });
     return res.data;
   },
+  searchProducts: async (query: string, signal?: AbortSignal): Promise<Product[]> => {
+    const res = await api.get<Product[]>('products/search', { 
+      params: { q: query },
+      signal 
+    });
+    return res.data;
+  },
   createProduct: async (data: ProductRequest): Promise<Product> => {
     const res = await api.post<Product>('products', data);
     return res.data;

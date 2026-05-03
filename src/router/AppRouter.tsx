@@ -20,6 +20,7 @@ import { HealthDashboard } from '../pages/admin/HealthDashboard';
 import { ProductionOrdersPage } from '../pages/production/ProductionOrdersPage';
 import { ProductionExecutionPage } from '../pages/production/ProductionExecutionPage';
 import { ProductionTemplateEditor } from '../pages/production/ProductionTemplateEditor';
+import { ProductionTemplatesPage } from '../pages/production/ProductionTemplatesPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { ChangePasswordPage } from '../pages/auth/ChangePasswordPage';
 
@@ -48,7 +49,9 @@ export function AppRouter() {
           <Route path="orders/:id" element={<OrderDetailPage />} />
           <Route path="production" element={<ProductionOrdersPage />} />
           <Route path="production/execution/:id" element={<ProductionExecutionPage />} />
+          <Route path="production/templates" element={<ProductionTemplatesPage />} />
           <Route path="production/templates/new" element={<ProductionTemplateEditor />} />
+          <Route path="production/templates/:id" element={<ProductionTemplateEditor />} />
           
           {/* RUTAS SOLO PARA SUPER ADMIN */}
           <Route element={<RoleGuard allowedRoles={['ROLE_SUPER_ADMIN']} />}>

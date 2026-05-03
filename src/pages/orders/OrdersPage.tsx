@@ -2,13 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
 import { 
-  Plus, Search, Calendar as CalendarIcon, Loader2, RefreshCw,
-  ShoppingBag, Clock, AlertCircle
+  Plus, Search, RefreshCw,
+  ShoppingBag
 } from 'lucide-react';
 import { ordersService } from '../../services/orders.service';
 import { customerService } from '../../services/customer.service';
-import { OrderStatus, ServiceOrder } from '../../types/orders';
-import OrdersTable from './components/OrdersTable';
 import { CustomerSelectModal } from './components/CustomerSelectModal';
 import { toast } from 'react-hot-toast';
 
@@ -17,14 +15,10 @@ const OrdersPage: React.FC = () => {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [isCreatingDraft, setIsCreatingDraft] = useState(false);
   
-  // Filter States
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
 
-  // SWR Fetching
-  const { data: orders, error: ordersError, isLoading, mutate: mutateOrders } = useSWR(
+  const { data: orders, isLoading } = useSWR(
     'orders',
     () => ordersService.getAll()
   );
@@ -47,49 +41,15 @@ const OrdersPage: React.FC = () => {
     }
   };
 
-  const handleSelectOrder = (order: ServiceOrder) => {
-    navigate(`/orders/${order.id}`);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar esta orden?')) {
-      try {
-        await ordersService.delete(id);
-        mutateOrders();
-        toast.success('Orden eliminada');
-      } catch (err) {
-        toast.error('Error al eliminar la orden');
-      }
-    }
-  };
-
-  const handleStatusChange = async (id: string, status: OrderStatus) => {
-    try {
-      await ordersService.updateStatus(id, status);
-      mutateOrders();
-      toast.success(`Estado actualizado a ${status}`);
-    } catch (err) {
-      toast.error('Error al actualizar el estado');
-    }
-  };
-
-  // Filter Logic
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
     return orders.filter(order => {
-      const matchesSearch = 
-        order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      const matchesSearch = order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
-      
       const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
-      
-      const orderDate = new Date(order.createdAt).toISOString().split('T')[0];
-      const matchesDateFrom = !dateFrom || orderDate >= dateFrom;
-      const matchesDateTo = !dateTo || orderDate <= dateTo;
-
-      return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo;
+      return matchesSearch && matchesStatus;
     });
-  }, [orders, searchTerm, statusFilter, dateFrom, dateTo]);
+  }, [orders, searchTerm, statusFilter]);
 
   const stats = useMemo(() => {
     if (!orders) return { total: 0, pending: 0, completed: 0 };
@@ -100,137 +60,131 @@ const OrdersPage: React.FC = () => {
     };
   }, [orders]);
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <RefreshCw className="w-10 h-10 text-[#7C5CFF] animate-spin" />
+        <p className="text-slate-500 font-medium mt-4">Cargando órdenes...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
-      
-      {/* Header & Stats Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-4">
-            <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none">
-              <ShoppingBag className="w-8 h-8 text-white" />
-            </div>
-            Órdenes de Servicio
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">
-            Gestiona y monitorea el flujo de producción industrial.
-          </p>
+          <div className="flex items-center gap-2 text-[#7C5CFF] font-bold text-xs uppercase tracking-widest mb-2">
+            <ShoppingBag className="w-4 h-4" />
+            <span>Órdenes de Servicio</span>
+          </div>
+          <h1 className="text-3xl font-bold text-slate-900">Órdenes</h1>
+          <p className="text-slate-500 text-sm mt-1">{orders?.length || 0} órdenes registradas</p>
         </div>
 
-        <div className="flex flex-wrap gap-4">
-          <div className="px-5 py-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
-            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
-              <RefreshCw className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total</p>
-              <p className="text-xl font-black text-slate-900 dark:text-white">{stats.total}</p>
-            </div>
-          </div>
-          <div className="px-5 py-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
-            <div className="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-lg">
-              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pendientes</p>
-              <p className="text-xl font-black text-slate-900 dark:text-white">{stats.pending}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsCustomerModalOpen(true)}
-            className="px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-all flex items-center gap-3 shadow-xl shadow-indigo-100 dark:shadow-none hover:-translate-y-1 active:scale-95"
-          >
-            <Plus className="w-6 h-6" />
-            Nueva Orden
-          </button>
+        <button onClick={() => setIsCustomerModalOpen(true)} className="btn-primary">
+          <Plus className="w-4 h-4" />
+          Nueva Orden
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Total</p>
+        </div>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          <p className="text-2xl font-bold" style={{ color: '#f59e0b' }}>{stats.pending}</p>
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Pendientes</p>
+        </div>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          <p className="text-2xl font-bold" style={{ color: '#10b981' }}>{stats.completed}</p>
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Completadas</p>
         </div>
       </div>
 
-      {/* Error State */}
-      {ordersError && (
-        <div className="mb-8 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/50 rounded-2xl flex items-center gap-3 text-rose-600 dark:text-rose-400">
-          <AlertCircle className="w-5 h-5 font-bold" />
-          <p className="font-medium">No se pudieron cargar las órdenes de servicio.</p>
-          <button onClick={() => mutateOrders()} className="ml-auto underline font-bold">Reintentar</button>
-        </div>
-      )}
-
-      {/* Filter Bar */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm mb-8">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar por # de orden o cliente..."
-              className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-indigo-500 rounded-2xl transition-all outline-none dark:text-white font-bold"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Status Filter */}
-            <div className="flex bg-slate-50 dark:bg-slate-800 p-1 rounded-2xl border border-slate-100 dark:border-slate-700">
-              {['ALL', 'CREATED', 'IN_PROGRESS', 'COMPLETED', 'DELIVERED', 'CANCELLED'].map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                    statusFilter === status 
-                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' 
-                      : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                  }`}
-                >
-                  {status === 'ALL' ? 'Todos' : status}
-                </button>
-              ))}
-            </div>
-
-            {/* Date Range */}
-            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-2xl border border-slate-100 dark:border-slate-700">
-              <CalendarIcon className="w-4 h-4 text-slate-400" />
-              <input 
-                type="date" 
-                className="bg-transparent text-xs font-bold outline-none dark:text-white"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-              <span className="text-slate-400">→</span>
-              <input 
-                type="date" 
-                className="bg-transparent text-xs font-bold outline-none dark:text-white"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Table Section */}
-      <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-[40px] p-2 min-h-[400px]">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-32">
-            <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
-            <p className="text-slate-500 dark:text-slate-400 font-medium animate-pulse">Sincronizando órdenes...</p>
-          </div>
-        ) : filteredOrders.length > 0 ? (
-          <OrdersTable 
-            orders={filteredOrders} 
-            onSelect={handleSelectOrder}
-            onDelete={handleDelete}
-            onStatusChange={handleStatusChange}
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar orden o cliente..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#7C5CFF]"
           />
-        ) : (
-          <div className="flex flex-col items-center justify-center py-32 text-slate-400">
-            <div className="p-6 bg-white dark:bg-slate-900 rounded-full mb-6 shadow-sm">
-              <ShoppingBag className="w-16 h-16 opacity-20" />
-            </div>
-            <p className="text-xl font-bold">No se encontraron órdenes</p>
-            <p className="text-sm mt-2">Intenta ajustar los filtros de búsqueda.</p>
+        </div>
+        <div className="flex rounded-xl overflow-hidden border border-slate-200">
+          {(['ALL', 'CREATED', 'IN_PROGRESS', 'COMPLETED'] as const).map(status => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className="px-4 py-2 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: statusFilter === status ? '#7C5CFF' : 'transparent',
+                color: statusFilter === status ? '#ffffff' : '#475569',
+              }}
+            >
+              {status === 'ALL' ? 'Todos' : status === 'CREATED' ? 'Creadas' : status === 'IN_PROGRESS' ? 'En Proceso' : 'Completadas'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-2xl shadow-sm border border-slate-200">
+        {filteredOrders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-white text-center">
+            <ShoppingBag className="w-12 h-12 text-slate-300 mb-4" />
+            <p className="text-lg font-semibold text-slate-700">No se encontraron órdenes</p>
+            <p className="text-sm mt-2 text-slate-500">Intenta ajustar los filtros de búsqueda.</p>
           </div>
+        ) : (
+          <table className="w-full min-w-[600px]">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Orden</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Cliente</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Estado</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Fecha</th>
+                <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {filteredOrders.map(order => (
+                <tr key={order.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4">
+                    <span className="font-semibold text-slate-900">#{order.orderNumber}</span>
+                  </td>
+                  <td className="px-6 py-4 text-slate-600">{order.customerName}</td>
+                  <td className="px-6 py-4">
+                    <span 
+                      className="px-3 py-1 rounded-full text-xs font-semibold"
+                      style={{ 
+                        backgroundColor: order.status === 'COMPLETED' ? '#10b98120' : order.status === 'IN_PROGRESS' ? '#f59e0b20' : '#7C5CFF20',
+                        color: order.status === 'COMPLETED' ? '#10b981' : order.status === 'IN_PROGRESS' ? '#f59e0b' : '#7C5CFF'
+                      }}
+                    >
+                      {order.status === 'CREATED' ? 'CREADA' : order.status === 'IN_PROGRESS' ? 'EN PROCESO' : order.status === 'COMPLETED' ? 'COMPLETADA' : order.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-slate-600">
+                    {new Date(order.createdAt).toLocaleDateString('es-CO')}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button 
+                      onClick={() => navigate(`/orders/${order.id}`)}
+                      className="text-[#7C5CFF] font-medium text-sm hover:underline"
+                    >
+                      Ver detalle
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 

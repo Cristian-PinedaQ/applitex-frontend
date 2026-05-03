@@ -1,18 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, 
   Trash2, 
-  Type, 
-  Hash, 
-  List as ListIcon, 
-  ToggleLeft, 
-  Calendar,
   Save,
   ArrowLeft,
-  Settings2
+  Settings2,
+  Loader2
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { ProductionService, ProductionTemplatePayload } from '../../services/production.service';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ProductionService } from '../../services/production.service';
+import { catalogService } from '../../services/catalog.service';
 import { toast } from 'react-hot-toast';
 
 interface Field {
@@ -23,11 +20,68 @@ interface Field {
   options?: string[];
 }
 
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+}
+
 export function ProductionTemplateEditor() {
+  const { id } = useParams();
   const navigate = useNavigate();
+  const isEdit = !!id;
+
   const [name, setName] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [productId, setProductId] = useState('');
   const [fields, setFields] = useState<Field[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [categoriesData] = await Promise.all([
+          catalogService.getCategories()
+        ]);
+        setCategories(categoriesData);
+
+        if (isEdit && id) {
+          const template = await ProductionService.getTemplateById(id);
+          setName(template.name);
+          setCategoryId(template.categoryId || '');
+          setProductId(template.productId || '');
+          setFields(template.fields?.map(f => ({
+            ...f,
+            id: f.id || crypto.randomUUID()
+          })) || []);
+        }
+      } catch (error) {
+        console.error('Error loading:', error);
+        toast.error('Error al cargar datos');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, [id, isEdit]);
+
+  useEffect(() => {
+    if (categoryId) {
+      catalogService.getProductsByCategory(categoryId)
+        .then(setProducts)
+        .catch(console.error);
+    } else {
+      setProducts([]);
+    }
+  }, [categoryId]);
 
   const addField = () => {
     const newField: Field = {
@@ -55,24 +109,48 @@ export function ProductionTemplateEditor() {
       return;
     }
 
-    setIsLoading(true);
-    const loadingToast = toast.loading('Guardando plantilla...');
+    setIsSaving(true);
+    const loadingToast = toast.loading(isEdit ? 'Actualizando plantilla...' : 'Guardando plantilla...');
 
     try {
-      const payload: ProductionTemplatePayload = {
+      const payload: any = {
         name,
-        fields: fields.map(({ id, ...rest }) => rest) // El backend genera IDs para los campos
+        categoryId: categoryId || undefined,
+        fields: fields.map(({ id, ...rest }) => rest)
       };
 
-      await ProductionService.createTemplate(payload);
+      // El backend espera un objeto Product, no solo productId
+      if (productId) {
+        payload.productId = productId;
+      }
+
+      if (isEdit && id) {
+        await ProductionService.updateTemplate(id, payload);
+        toast.success('Plantilla actualizada', { id: loadingToast });
+      } else {
+        await ProductionService.createTemplate(payload);
+        toast.success('Plantilla creada', { id: loadingToast });
+      }
       
-      toast.success('Plantilla creada correctamente', { id: loadingToast });
-      navigate('/production');
+      navigate('/production/templates');
     } catch (error: any) {
       console.error('Error saving template:', error);
       toast.error(error.response?.data?.message || 'Error al guardar la plantilla', { id: loadingToast });
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    if (!confirm('¿Eliminar esta plantilla?')) return;
+
+    try {
+      await ProductionService.deleteTemplate(id);
+      toast.success('Plantilla eliminada');
+      navigate('/production/templates');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al eliminar');
     }
   };
 
@@ -84,135 +162,190 @@ export function ProductionTemplateEditor() {
     setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f));
   };
 
-  const fieldIcons = {
-    TEXT: Type,
-    NUMBER: Hash,
-    SELECT: ListIcon,
-    BOOLEAN: ToggleLeft,
-    DATE: Calendar
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
-      {/* ELITE HEADER */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => navigate(-1)}
-            className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all shadow-sm dark:shadow-none"
+            onClick={() => navigate('/production/templates')}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
           </button>
           <div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-              <Settings2 className="w-6 h-6 text-indigo-600 dark:text-indigo-500" />
-              Editor de Plantillas
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white">
+              {isEdit ? 'Editar Plantilla' : 'Nueva Plantilla'}
             </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">Define los contratos de reporte para planta</p>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
+              {isEdit ? 'Modifica la plantilla de producción' : 'Crea una plantilla para órdenes de producción'}
+            </p>
+          </div>
+        </div>
+        {isEdit && (
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 rounded-xl font-semibold transition-colors"
+          >
+            <Trash2 className="w-5 h-5" />
+            Eliminar
+          </button>
+        )}
+      </div>
+
+      {/* Form */}
+      <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-3xl p-4 sm:p-8 space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+          <div className="space-y-2">
+            <label className="block text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+              Nombre de Plantilla
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="ej: Control de Calidad"
+              className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500/60 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+              Categoría
+            </label>
+            <select
+              value={categoryId}
+              onChange={(e) => { setCategoryId(e.target.value); setProductId(''); }}
+              className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500/60 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+            >
+              <option value="">Selecciona categoría...</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+              Producto
+            </label>
+            <select
+              value={productId}
+              onChange={(e) => setProductId(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500/60 focus:ring-4 focus:ring-indigo-500/5 transition-all"
+              disabled={!categoryId}
+            >
+              <option value="">Selecciona producto (opcional)...</option>
+              {products.map(prod => (
+                <option key={prod.id} value={prod.id}>{prod.name}</option>
+              ))}
+            </select>
           </div>
         </div>
 
-        <button 
-          onClick={handleSave}
-          disabled={isLoading}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-black transition-all shadow-lg shadow-indigo-600/20 active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-        >
-          <Save className={`w-5 h-5 ${isLoading ? 'animate-pulse' : ''}`} />
-          {isLoading ? 'Guardando...' : 'Guardar Plantilla'}
-        </button>
-      </div>
-
-      {/* TEMPLATE CONFIG */}
-      <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-3xl p-8 space-y-8 shadow-xl shadow-slate-200/50 dark:shadow-none">
-        <div>
-          <label className="block text-xs font-black text-slate-600 dark:text-slate-300 uppercase tracking-[0.2em] mb-4 px-1">Nombre de la Plantilla</label>
-          <input 
-            type="text" 
-            placeholder="Ej: Reporte de Calidad Textil"
-            disabled={isLoading}
-            className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/10 focus:border-indigo-500/50 rounded-2xl py-5 px-8 text-lg font-black text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-all focus:ring-4 focus:ring-indigo-500/10 outline-none shadow-inner disabled:opacity-50"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-
-        <div className="pt-4 space-y-6">
-          <div className="flex items-center justify-between px-1 border-b border-slate-100 dark:border-white/5 pb-4">
-            <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-[0.2em]">Campos Dinámicos</h3>
-            <button 
+        {/* Fields */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+              Campos
+            </label>
+            <button
               onClick={addField}
-              disabled={isLoading}
-              className="flex items-center gap-2 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors uppercase tracking-[0.15em] disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-semibold transition-colors"
             >
               <Plus className="w-4 h-4" />
               Agregar Campo
             </button>
           </div>
 
-          <div className="space-y-4">
-            {fields.map((field) => {
-              const Icon = fieldIcons[field.type];
+          <div className="space-y-3">
+            {fields.map((field, index) => {
               return (
-                <div key={field.id} className="group flex items-center gap-4 p-5 bg-white dark:bg-slate-950/50 border border-slate-200 dark:border-white/10 hover:border-indigo-500/30 dark:hover:border-indigo-500/20 rounded-2xl transition-all shadow-sm dark:shadow-none">
-                  <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-slate-500 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors border border-slate-200 dark:border-white/5">
-                    <Icon className="w-5 h-5" />
-                  </div>
+                <div 
+                  key={field.id} 
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 rounded-xl"
+                >
+                  <span className="hidden sm:flex w-6 h-6 items-center justify-center bg-slate-200 dark:bg-slate-800 rounded-lg text-xs font-black text-slate-500 dark:text-slate-400">
+                    {index + 1}
+                  </span>
                   
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={field.name}
-                    disabled={isLoading}
                     onChange={(e) => updateField(field.id, { name: e.target.value })}
-                    className="flex-1 bg-transparent border-none focus:ring-0 text-slate-900 dark:text-white font-black placeholder:text-slate-300 dark:placeholder:text-slate-800 text-lg outline-none disabled:opacity-50"
-                    placeholder="Nombre del campo..."
+                    placeholder="Nombre del campo"
+                    className="flex-1 bg-transparent border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 dark:text-white"
                   />
 
-                  <div className="flex items-center gap-1.5 p-1 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-white/5">
-                    {(Object.keys(fieldIcons) as Array<keyof typeof fieldIcons>).map((type) => (
-                      <button
-                        key={type}
-                        disabled={isLoading}
-                        onClick={() => updateField(field.id, { type })}
-                        className={`px-3 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${
-                          field.type === type 
-                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
-                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-white/5'
-                        } disabled:opacity-50`}
-                      >
-                        {type}
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={field.type}
+                      onChange={(e) => updateField(field.id, { type: e.target.value as Field['type'] })}
+                      className="flex-1 sm:flex-none w-full sm:w-28 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-900 dark:text-white"
+                    >
+                      <option value="TEXT">Texto</option>
+                      <option value="NUMBER">Número</option>
+                      <option value="DATE">Fecha</option>
+                      <option value="BOOLEAN">Sí/No</option>
+                      <option value="SELECT">Selección</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => updateField(field.id, { required: !field.required })}
+                      className={`flex-1 sm:flex-none px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        field.required 
+                          ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400' 
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {field.required ? 'Oblig.' : 'Opcional'}
+                    </button>
+
+                    <button
+                      onClick={() => removeField(field.id)}
+                      className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-rose-500" />
+                    </button>
                   </div>
-
-                  <label className="flex items-center gap-3 cursor-pointer px-4 py-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all border border-transparent hover:border-slate-200 dark:hover:border-white/5">
-                    <input 
-                      type="checkbox" 
-                      checked={field.required}
-                      disabled={isLoading}
-                      onChange={(e) => updateField(field.id, { required: e.target.checked })}
-                      className="w-4 h-4 rounded border-slate-300 dark:border-white/20 bg-white dark:bg-slate-950 text-indigo-600 focus:ring-indigo-500/20 disabled:opacity-50"
-                    />
-                    <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">Obligatorio</span>
-                  </label>
-
-                  <button 
-                    onClick={() => removeField(field.id)}
-                    disabled={isLoading}
-                    className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all disabled:opacity-50"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
                 </div>
               );
             })}
 
             {fields.length === 0 && (
-              <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-white/10 rounded-3xl bg-slate-50/50 dark:bg-slate-950/30">
-                <Settings2 className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-4 opacity-50" />
-                <p className="text-slate-600 dark:text-slate-300 font-bold uppercase tracking-widest text-xs">No hay campos definidos aún.<br/><span className="text-slate-400 dark:text-slate-500 font-medium lowercase">Empieza agregando uno arriba.</span></p>
+              <div className="text-center py-8 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
+                <Settings2 className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Agrega campos para collecting datos en producción
+                </p>
               </div>
             )}
           </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-white/10">
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+          >
+            {isSaving ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Save className="w-5 h-5" />
+            )}
+            {isEdit ? 'Actualizar' : 'Guardar Plantilla'}
+          </button>
         </div>
       </div>
     </div>

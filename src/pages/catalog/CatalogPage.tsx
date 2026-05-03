@@ -216,7 +216,7 @@ export function CatalogPage() {
           </button>
           <button
             onClick={handlePrimaryAction}
-            className="flex items-center gap-2 px-5 py-3 text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
+            className="btn-primary"
           >
             <Plus className="w-4 h-4" />
             {primaryLabel}
@@ -288,7 +288,7 @@ export function CatalogPage() {
               {!searchTerm && categoryFilter === 'ALL' && (
                 <button
                   onClick={() => navigate('/catalog/new')}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition-all active:scale-95"
+                  className="btn-primary"
                 >
                   <Plus className="w-4 h-4" /> Crear Producto
                 </button>

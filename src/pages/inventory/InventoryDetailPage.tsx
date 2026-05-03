@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Loader2, Save, Package, ArrowUpCircle, ArrowDownCircle,
@@ -77,67 +77,81 @@ const InventoryDetailPage: React.FC = () => {
     );
   }, [customerQuery, customers]);
 
-  const loadInitialData = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const [cats, customersData] = await Promise.all([
-        catalogService.getCategories(signal),
-        customerService.getAll(signal) // ← CORREGIDO: Usar customerService.getAll
-      ]);
-      setCategories(cats);
-      setCustomers(customersData);
-
-      if (!isNew) {
-        const data = await inventoryService.getInventoryById(id!, signal);
-        resolveConflict(data); // Usamos resolveConflict para setear el item inicial sin activar DIRTY
-      } else {
-        // Inicializar para nuevo item
-        resolveConflict({
-          id: '', name: '', detail: '', categoryId: '', categoryName: '',
-          customerId: '', customerName: '', reference: '', price: 0,
-          initialQuantity: 0, finalQuantity: 0, attributes: [],
-          version: 0
-        } as any);
-      }
-    } catch (err: any) {
-      console.error('Error loading inventory detail', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [id, isNew, resolveConflict]);
-
-  const loadMovements = useCallback(async (signal?: AbortSignal) => {
+  const loadMovements = async (signal?: AbortSignal) => {
     if (isNew) return;
     setLoadingMovements(true);
     try {
       const data = await inventoryService.getMovements(id!, signal);
       setMovements(data);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.name === 'AbortError') return;
       console.error('Error loading movements', err);
     } finally {
       setLoadingMovements(false);
     }
-  }, [id, isNew]);
+  };
 
-  const loadReservations = useCallback(async (signal?: AbortSignal) => {
+  const loadReservations = async (signal?: AbortSignal) => {
     if (isNew) return;
     setLoadingReservations(true);
     try {
       const data = await inventoryService.getReservations(id!, signal);
       setReservations(data);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.name === 'AbortError') return;
       console.error('Error loading reservations', err);
     } finally {
       setLoadingReservations(false);
     }
-  }, [id, isNew]);
+  };
 
   useEffect(() => {
     const ctrl = new AbortController();
-    loadInitialData(ctrl.signal);
-    loadMovements(ctrl.signal);
-    loadReservations(ctrl.signal);
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [cats, customersData] = await Promise.all([
+          catalogService.getCategories(ctrl.signal),
+          customerService.getAll(ctrl.signal),
+        ]);
+        setCategories(cats);
+        setCustomers(customersData);
+
+        if (!isNew) {
+          const data = await inventoryService.getInventoryById(id!, ctrl.signal);
+          resolveConflict(data);
+        } else {
+          resolveConflict({
+            id: '', name: '', detail: '', categoryId: '', categoryName: '',
+            customerId: '', customerName: '', reference: '', price: 0,
+            initialQuantity: 0, finalQuantity: 0, attributes: [],
+            version: 0
+          } as any);
+        }
+      } catch (err: any) {
+        if (err?.name === 'CanceledError' || err?.name === 'AbortError') return;
+        console.error('Error loading inventory detail', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
     return () => ctrl.abort();
-  }, [loadInitialData, loadMovements, loadReservations]);
+  }, [id, isNew, resolveConflict]);
+
+  useEffect(() => {
+    if (isNew) return;
+    loadMovements();
+  }, [id, isNew]);
+
+  useEffect(() => {
+    if (isNew) return;
+    loadReservations();
+  }, [id, isNew]);
+
+  // handleSaveMetadata con fix crítico
 
   // handleSaveMetadata con fix crítico
   const handleSaveMetadata = async () => {
@@ -225,13 +239,13 @@ const InventoryDetailPage: React.FC = () => {
           </div>
           
           <div className="flex gap-3">
-             <button
-              onClick={handleSaveMetadata}
-              disabled={!isDirty || isSaving}
-              className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black transition-all active:scale-95 disabled:opacity-50 ${
-                isDirty ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200' : 'bg-slate-100 text-slate-400'
-              }`}
-            >
+<button
+               onClick={handleSaveMetadata}
+               disabled={!isDirty || isSaving}
+               className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black transition-all active:scale-95 disabled:opacity-50 ${
+                 isDirty ? 'btn-primary' : 'bg-slate-100 text-slate-400'
+               }`}
+             >
               {isSaving && state === 'SAVING' ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
               {isNew ? 'Crear Ítem' : 'Actualizar Ficha'}
             </button>

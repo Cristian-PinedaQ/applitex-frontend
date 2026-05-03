@@ -12,13 +12,19 @@ export interface ProductionTemplatePayload {
   id?: string;
   name: string;
   categoryId?: string;
+  productId?: string;
   version?: number;
   fields: DynamicFieldPayload[];
 }
 
+export interface ProductionTemplateFilters {
+  categoryId?: string;
+  productId?: string;
+}
+
 export const ProductionService = {
-  getTemplates: async (): Promise<ProductionTemplatePayload[]> => {
-    const response = await api.get('/production-templates');
+  getTemplates: async (filters?: ProductionTemplateFilters): Promise<ProductionTemplatePayload[]> => {
+    const response = await api.get('/production-templates', { params: filters });
     return response.data;
   },
 
@@ -29,6 +35,21 @@ export const ProductionService = {
 
   createTemplate: async (data: ProductionTemplatePayload): Promise<ProductionTemplatePayload> => {
     const response = await api.post('/production-templates', data);
+    return response.data;
+  },
+
+  updateTemplate: async (id: string, data: ProductionTemplatePayload): Promise<ProductionTemplatePayload> => {
+    const response = await api.put(`/production-templates/${id}`, data);
+    return response.data;
+  },
+
+  deleteTemplate: async (id: string): Promise<void> => {
+    await api.delete(`/production-templates/${id}`);
+  },
+
+  // --- Service Order Detail ---
+  getServiceOrderInfo: async (productionOrderId: string): Promise<any> => {
+    const response = await api.get(`/production/${productionOrderId}/service-order`);
     return response.data;
   },
 
@@ -54,8 +75,7 @@ export const ProductionService = {
   },
 
   completeProduction: async (id: string, data: { 
-    templateId: string; 
-    values: Record<string, any>;
+    items: { id: string; filledData: Record<string, any> }[];
     signedBy: string;
     idempotencyKey: string;
     correlationId?: string;

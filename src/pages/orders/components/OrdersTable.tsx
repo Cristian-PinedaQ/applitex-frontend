@@ -26,15 +26,15 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
   orders, onSelect, onDelete, onStatusChange 
 }) => {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left border-separate border-spacing-y-3">
+    <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+      <table className="w-full text-left border-separate border-spacing-y-3 min-w-[600px]">
         <thead>
-          <tr className="text-slate-500 text-xs font-bold uppercase tracking-widest">
-            <th className="px-6 py-4">Orden #</th>
-            <th className="px-6 py-4">Cliente</th>
-            <th className="px-6 py-4">Estado</th>
-            <th className="px-6 py-4 hidden md:table-cell">Fecha</th>
-            <th className="px-6 py-4 text-right">Acciones</th>
+          <tr className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest">
+            <th className="px-4 md:px-6 py-4">Orden #</th>
+            <th className="px-4 md:px-6 py-4">Cliente</th>
+            <th className="px-4 md:px-6 py-4">Estado</th>
+            <th className="px-4 md:px-6 py-4 hidden md:table-cell">Fecha</th>
+            <th className="px-4 md:px-6 py-4 text-right">Acciones</th>
           </tr>
         </thead>
         <tbody>

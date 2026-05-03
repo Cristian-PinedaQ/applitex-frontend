@@ -71,7 +71,7 @@ export function DashboardPage() {
         </div>
         <button 
           onClick={() => window.location.reload()}
-          className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-500/20 transition-all active:scale-95"
+          className="btn-primary"
         >
           Reintentar Sincronización
         </button>
@@ -340,21 +340,21 @@ export function DashboardPage() {
 
         {/* QUICK ACTIONS */}
         <div className="space-y-6">
-          <div className="p-8 bg-indigo-600 rounded-[2.5rem] text-white shadow-2xl shadow-indigo-500/30 group cursor-pointer active:scale-95 transition-all">
+<div onClick={() => navigate('/orders')} className="p-8 bg-[#7C5CFF] rounded-[2.5rem] text-white shadow-2xl cursor-pointer active:scale-95 transition-all">
              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center mb-6 group-hover:rotate-12 transition-transform">
                 <Plus className="w-6 h-6 text-white" />
              </div>
              <h3 className="text-xl font-black mb-2 tracking-tight">Nueva Orden</h3>
-             <p className="text-indigo-100 text-xs font-medium leading-relaxed">Inicia un nuevo proceso de servicio para cliente externo.</p>
-          </div>
+             <p className="text-white/70 text-xs font-medium leading-relaxed">Inicia un nuevo proceso de servicio para cliente externo.</p>
+        </div>
 
-          <div className="p-8 bg-slate-900 dark:bg-slate-800 rounded-[2.5rem] text-white border border-white/5 group cursor-pointer active:scale-95 transition-all shadow-xl">
+<div onClick={() => navigate('/inventory/new')} className="p-8 bg-slate-900 dark:bg-slate-800 rounded-[2.5rem] text-white border border-white/5 group cursor-pointer active:scale-95 transition-all shadow-xl">
              <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center mb-6 group-hover:-rotate-12 transition-transform">
                 <Package className="w-6 h-6 text-white" />
              </div>
              <h3 className="text-xl font-black mb-2 tracking-tight">Cargar Stock</h3>
              <p className="text-slate-400 text-xs font-medium leading-relaxed">Registra entrada de materias primas o insumos de costura.</p>
-          </div>
+        </div>
         </div>
 
       </div>

@@ -29,7 +29,7 @@ export const OrderDetailsList: React.FC<OrderDetailsListProps> = ({
         </div>
         <button
           onClick={onAdd}
-          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none hover:bg-indigo-700 transition-all active:scale-95"
+          className="btn-primary"
         >
           <Plus className="w-5 h-5" />
           Añadir Producto

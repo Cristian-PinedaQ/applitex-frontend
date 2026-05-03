@@ -196,7 +196,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 dark:shadow-none flex items-center justify-center gap-2 disabled:opacity-50"
+              className="btn-primary flex-1"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />

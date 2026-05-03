@@ -12,11 +12,13 @@ import {
   Building2, 
   Menu,
   Factory,
-  Activity
+  Activity,
+  FileEdit
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useScrollRestoration } from '../../hooks/useScrollRestoration';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import logo from '../../assets/logo.webp';
 
 export function AppLayout() {
@@ -46,6 +48,7 @@ export function AppLayout() {
     { name: 'Inventario', icon: Boxes, path: '/inventory' },
     { name: 'Órdenes', icon: FileText, path: '/orders' },
     { name: 'Producción', icon: Factory, path: '/production' },
+    { name: 'Plantillas', icon: FileEdit, path: '/production/templates' },
   ];
 
   if (role === 'ROLE_SUPER_ADMIN') {
@@ -77,7 +80,7 @@ export function AppLayout() {
             className={({ isActive }) => `
               w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all duration-300
               ${isActive 
-                ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200 dark:shadow-none' 
+                ? 'btn-primary' 
                 : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}
             `}
           >
@@ -103,7 +106,7 @@ export function AppLayout() {
     </div>
   );
 
-  return (
+return (
     <div className="min-h-dynamic bg-slate-50 dark:bg-slate-950 flex flex-col lg:flex-row font-serif">
       
       {/* Mobile Drawer (vía Vaul) */}
@@ -112,7 +115,7 @@ export function AppLayout() {
           <Drawer.Overlay className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-40 animate-in fade-in duration-300" />
           <Drawer.Content className="fixed bottom-0 left-0 top-0 w-[280px] z-50 outline-none flex">
             {/* El Drawer gestiona su propio Safe Area para ser independiente */}
-            <div className="flex-1 h-full shadow-2xl animate-in slide-in-from-left duration-300 pb-safe pt-safe overflow-y-auto">
+            <div className="flex-1 h-full shadow-2xl animate-in slide-in-from-left duration-300 pb-safe pt-safe overflow-y-auto bg-white dark:bg-slate-900">
               <SidebarContent />
             </div>
           </Drawer.Content>
@@ -128,36 +131,39 @@ export function AppLayout() {
       <div className="flex-1 flex flex-col min-w-0 lg:pl-72">
         
         {/* Responsive Header */}
-        <header className="h-16 h-dynamic max-h-16 glass dark:glass-dark sticky top-0 z-30 border-b border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between px-6 lg:px-10">
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 lg:px-10">
           <div className="flex items-center gap-4">
             <button 
               onClick={(e) => {
                 e.currentTarget.blur();
                 setIsMobileMenuOpen(true);
               }}
-              className="lg:hidden p-3 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl active:scale-95 transition-all"
+              className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
               aria-label="Abrir menú"
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-3">
-              <img src={logo} alt="Applitex Logo" className="w-9 h-9 object-contain drop-shadow-sm lg:hidden" />
+              <img src={logo} alt="Applitex Logo" className="w-8 h-8 object-contain lg:hidden" />
               <div className="flex flex-col">
-                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] leading-none mb-1.5">Módulo de Gestión</span>
-                <span className="text-base lg:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none">SyncCore <span className="text-slate-400 font-medium">v1.2</span></span>
+                <span className="text-[10px] font-semibold text-[#7C5CFF] uppercase tracking-wider leading-none">Applitex</span>
+                <span className="text-lg font-bold text-slate-900 dark:text-white leading-none">SyncCore <span className="text-slate-400 font-normal">v1.2</span></span>
               </div>
             </div>
           </div>
 
-          <div className="hidden sm:flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center border border-slate-200 dark:border-white/10 shadow-sm">
-                <Activity className="w-5 h-5 text-indigo-500" />
-             </div>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                 <Activity className="w-4 h-4 text-[#7C5CFF]" />
+              </div>
+            </div>
           </div>
         </header>
 
         {/* Contenedor de Contenido con Safe Area único */}
-        <main className="flex-1 p-4 md:p-8 lg:p-10 max-w-7xl mx-auto w-full pb-safe">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 xl:p-10 max-w-7xl mx-auto w-full pb-safe overflow-x-hidden bg-slate-50 dark:bg-slate-950 min-h-full">
           <Outlet />
         </main>
       </div>
