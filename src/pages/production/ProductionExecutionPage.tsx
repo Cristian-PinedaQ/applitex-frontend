@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft,  
   RotateCcw, 
   CheckCircle2, 
   AlertTriangle,
   Info,
-  Clock,
   FileText,
   Activity,
   History,
@@ -39,6 +38,9 @@ export function ProductionExecutionPage() {
 
   // ── Report state por item ──
   const [itemsData, setItemsData] = useState<Record<string, Record<string, any>>>({});
+  const [consumedByItem, setConsumedByItem] = useState<Record<string, number | ''>>({});
+  const [saveStatus, setSaveStatus] = useState<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({});
+  const saveTimersRef = useRef<Record<string, number>>({});
   const [signedBy, setSignedBy] = useState<string>('');
   const [reportSubmitting, setReportSubmitting] = useState<boolean>(false);
   const [reportSuccess, setReportSuccess] = useState<boolean>(false);
@@ -62,6 +64,18 @@ export function ProductionExecutionPage() {
   }, [order]);
 
   useEffect(() => {
+    if (order?.id && !serviceOrderData) {
+      setIsLoadingServiceOrder(true);
+      ProductionService.getServiceOrderInfo(order.id)
+        .then(setServiceOrderData)
+        .catch(err => {
+          console.error('Error loading service order:', err);
+        })
+        .finally(() => setIsLoadingServiceOrder(false));
+    }
+  }, [order?.id]);
+
+  useEffect(() => {
     if (showServiceOrderDetail && order?.id) {
       setIsLoadingServiceOrder(true);
       ProductionService.getServiceOrderInfo(order.id)
@@ -73,6 +87,13 @@ export function ProductionExecutionPage() {
         .finally(() => setIsLoadingServiceOrder(false));
     }
   }, [showServiceOrderDetail, order?.id]);
+
+  // Cleanup de timers de autosave al desmontar componente
+  useEffect(() => {
+    return () => {
+      Object.values(saveTimersRef.current).forEach(clearTimeout);
+    };
+  }, []);
 
   const loadData = async (silent = false) => {
     try {
@@ -118,12 +139,52 @@ export function ProductionExecutionPage() {
     }
   };
 
+  const handleConsumptionSubmit = (itemId: string) => {
+    if (order?.status === 'COMPLETED') return;
+    
+    const amount = consumedByItem[itemId];
+    if (amount === undefined || amount === '' || amount <= 0) return;
+    
+    updateConsumed(itemId, amount);
+    setConsumedByItem(prev => ({ ...prev, [itemId]: '' }));
+  };
+
   // ── Handlers ──
   const handleItemChange = (itemId: string, data: Record<string, any>) => {
+    // Actualizar estado UI inmediatamente
     setItemsData((prev: Record<string, Record<string, any>>) => ({
       ...prev,
       [itemId]: data
     }));
+
+    // Capturar snapshot de estado para evitar stale state
+    const currentOrderId = order?.id;
+    const isCompleted = order?.status === 'COMPLETED';
+    
+    // Si no hay orderId o está completada, no guardar
+    if (!currentOrderId || isCompleted) return;
+
+    // Cancelar timer anterior para este item
+    if (saveTimersRef.current[itemId]) {
+      clearTimeout(saveTimersRef.current[itemId]);
+    }
+
+    // Debounce de 700ms antes de guardar (usa snapshot - sin acceso a 'order' dentro)
+    saveTimersRef.current[itemId] = setTimeout(async () => {
+      try {
+        setSaveStatus(prev => ({ ...prev, [itemId]: 'saving' }));
+        await ProductionService.saveItemReport(currentOrderId, itemId, data);
+        setSaveStatus(prev => ({ ...prev, [itemId]: 'saved' }));
+        
+        // Resetear a idle después de 1.5s
+        setTimeout(() => {
+          setSaveStatus(prev => ({ ...prev, [itemId]: 'idle' }));
+        }, 1500);
+      } catch (err) {
+        console.error('Error saving report:', err);
+        setSaveStatus(prev => ({ ...prev, [itemId]: 'error' }));
+      }
+    }, 700);
   };
 
   // ── Report submit ──
@@ -163,10 +224,10 @@ export function ProductionExecutionPage() {
     setReportError(null);
 
     try {
-      // 📦 Payload limpio - solo id y filledData
+      // 📦 Payload correcto - usa values (contrato único con backend)
       const itemsPayload = order.items.map((item: any) => ({
         id: item.id,
-        filledData: itemsData[item.id] || item.filledData || {}
+        values: itemsData[item.id] || {}
       }));
 
       await ProductionService.completeProduction(order.id, {
@@ -241,11 +302,21 @@ export function ProductionExecutionPage() {
           </button>
           <button
             onClick={handleComplete}
-            disabled={isSyncing}
-            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
+            disabled={isSyncing || order.status === 'COMPLETED'}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg active:scale-95 ${
+              order.status === 'COMPLETED'
+                ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+            }`}
           >
-            {isSyncing ? <Activity className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-            Finalizar OP
+            {isSyncing ? (
+              <Activity className="w-5 h-5 animate-spin" />
+            ) : order.status === 'COMPLETED' ? (
+              <CheckCircle2 className="w-5 h-5" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5" />
+            )}
+            {order.status === 'COMPLETED' ? 'Orden Completada' : 'Finalizar OP'}
           </button>
         </div>
       </div>
@@ -270,30 +341,32 @@ export function ProductionExecutionPage() {
       )}
 
       {/* TABS */}
-      <div className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl w-fit shadow-sm dark:shadow-none">
-        {[
-          { id: 'execution', label: 'Ejecución y Consumo', icon: Activity },
-          { id: 'reports',   label: 'Reportes de Calidad', icon: FileText },
-          { id: 'ledger',    label: 'Auditoría (Ledger)',  icon: History },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              activeTab === tab.id
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-white/5'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-            {tab.id === 'reports' && hasAnyTemplate && (
-              <span className="ml-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                !
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm dark:shadow-none overflow-x-auto scrollbar-hide">
+        <div className="flex items-center gap-2 flex-nowrap">
+          {[
+            { id: 'execution', label: 'Ejecución y Consumo', icon: Activity },
+            { id: 'reports',   label: 'Reportes de Calidad', icon: FileText },
+            { id: 'ledger',    label: 'Auditoría (Ledger)',  icon: History },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-4 md:px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-white/5'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+              {tab.id === 'reports' && hasAnyTemplate && (
+                <span className="ml-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                  !
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── EXECUTION TAB ── */}
@@ -301,63 +374,131 @@ export function ProductionExecutionPage() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <div className="xl:col-span-2 space-y-4">
             {order.items.map((item: any) => {
-              const variance = (item.consumedQuantity || 0) - item.orderedQuantity;
+              const serviceDetail = serviceOrderData?.details?.find(
+                (d: any) => d.id === item.serviceOrderDetailId
+              );
+              const hasInventoryLink = !!item.inventoryItemId;
+              const reserved = serviceDetail?.usedInventoryQuantity ?? 
+                               item.usedInventoryQuantity ?? 
+                               item.orderedQuantity ?? 
+                               0;
+              const consumed = item.consumedQuantity ?? 0;
+              const variance = reserved - consumed;
               const snapshot = item.productSnapshot || {};
+              const hasInventoryData = reserved > 0 || hasInventoryLink;
               return (
-                <div key={item.id} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 hover:border-indigo-500/20 rounded-3xl p-8 transition-all shadow-xl shadow-slate-200/40 dark:shadow-none group">
-                  <div className="flex flex-col md:flex-row gap-8">
+                <div key={item.id} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 hover:border-indigo-500/20 rounded-2xl md:rounded-3xl p-4 md:p-8 transition-all shadow-lg md:shadow-xl shadow-slate-200/40 dark:shadow-none group overflow-hidden">
+                  <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-1">{snapshot.name || 'Sin nombre'}</h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-500 font-mono font-bold tracking-tight uppercase tracking-widest">{snapshot.sku || 'N/A'}</p>
-                      <div className="mt-8 grid grid-cols-3 gap-4">
-                        <div className="p-4 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-slate-200 dark:border-white/5 text-center">
-                          <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Ordenado</p>
-                          <p className="text-xl font-black text-slate-900 dark:text-white">{item.orderedQuantity}<span className="text-xs text-slate-400 ml-1 font-normal uppercase">{snapshot.unit}</span></p>
+                      <h3 className="text-lg md:text-xl font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-1 truncate">{snapshot.name || 'Sin nombre'}</h3>
+                      <p className="text-xs md:text-sm text-slate-500 dark:text-slate-500 font-mono font-bold tracking-tight uppercase tracking-widest truncate">{snapshot.sku || 'N/A'}</p>
+                      
+                      <div className="mt-3 md:mt-6 mb-2 flex flex-wrap gap-2">
+                        <div className="inline-flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg border border-indigo-200 dark:border-indigo-500/20">
+                          <span className="text-[8px] md:text-[10px] text-indigo-600 dark:text-indigo-400 uppercase font-black tracking-widest">Servicio:</span>
+                          <span className="text-xs md:text-sm font-black text-indigo-900 dark:text-indigo-300">{item.quantity ?? 0}</span>
+                          <span className="text-[8px] md:text-[10px] text-indigo-400 uppercase">{snapshot.unit}</span>
                         </div>
-                        <div className="p-4 bg-indigo-50 dark:bg-indigo-500/5 rounded-2xl border border-indigo-200 dark:border-indigo-500/20 text-center">
-                          <p className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase font-black tracking-widest mb-1">Diferencia</p>
-                          <p className={`text-xl font-black ${variance > 0 ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400'}`}>
-                            {variance.toFixed(1)}<span className="text-xs ml-1 font-normal uppercase">{snapshot.unit}</span>
-                          </p>
-                        </div>
-                        <div className="p-4 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-slate-200 dark:border-white/5 text-center">
-                          <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Consumido</p>
-                          <p className="text-xl font-black text-slate-900 dark:text-slate-200">{item.consumedQuantity || 0}<span className="text-xs text-slate-400 ml-1 font-normal uppercase">{snapshot.unit}</span></p>
-                        </div>
+                        {hasInventoryLink && (
+                          <div className="inline-flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 bg-amber-50 dark:bg-amber-500/10 rounded-lg border border-amber-200 dark:border-amber-500/20">
+                            <span className="text-[8px] md:text-[10px] text-amber-600 dark:text-amber-400 uppercase font-black tracking-widest">Inventario:</span>
+                            <span className="text-xs md:text-sm font-black text-amber-800 dark:text-amber-300 truncate max-w-[100px] md:max-w-none">{serviceDetail?.inventoryItemName || item.inventoryItemName || '—'}</span>
+                          </div>
+                        )}
                       </div>
+
+                      {hasInventoryData && (
+                        <div className="mt-3 md:mt-4 grid grid-cols-3 gap-2 md:gap-4">
+                          <div className="p-2 md:p-4 bg-slate-50 dark:bg-slate-950/50 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/5 text-center">
+                            <p className="text-[8px] md:text-[10px] text-slate-500 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Reservado</p>
+                            <p className="text-lg md:text-xl font-black text-slate-900 dark:text-white">{reserved}<span className="text-[10px] md:text-xs text-slate-400 ml-1 font-normal uppercase">{snapshot.unit}</span></p>
+                          </div>
+                          <div className="p-2 md:p-4 bg-slate-50 dark:bg-slate-950/50 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/5 text-center">
+                            <p className="text-[8px] md:text-[10px] text-slate-500 dark:text-slate-500 uppercase font-black tracking-widest mb-1">Consumido</p>
+                            <p className="text-lg md:text-xl font-black text-slate-900 dark:text-slate-200">{consumed}<span className="text-[10px] md:text-xs text-slate-400 ml-1 font-normal uppercase">{snapshot.unit}</span></p>
+                          </div>
+                          <div className={`p-2 md:p-4 rounded-xl md:rounded-2xl text-center border ${
+                            variance > 0 ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20' :
+                            variance < 0 ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20' :
+                            'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20'
+                          }`}>
+                            <p className={`text-[8px] md:text-[10px] uppercase font-black tracking-widest mb-1 ${
+                              variance > 0 ? 'text-emerald-600 dark:text-emerald-400' :
+                              variance < 0 ? 'text-rose-600 dark:text-rose-400' :
+                              'text-indigo-600 dark:text-indigo-400'
+                            }`}>Diferencia</p>
+                            <p className={`text-lg md:text-xl font-black ${
+                              variance > 0 ? 'text-emerald-600 dark:text-emerald-400' :
+                              variance < 0 ? 'text-rose-600 dark:text-rose-400' :
+                              'text-indigo-600 dark:text-indigo-400'
+                            }`}>
+                              {variance > 0 ? '+' : ''}{variance.toFixed(1)}<span className="text-[10px] md:text-xs ml-1 font-normal uppercase">{snapshot.unit}</span>
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="w-full md:w-72 space-y-4">
-                      <div className="relative">
-                        <label className="block text-xs font-black text-slate-500 dark:text-slate-300 uppercase tracking-[0.2em] mb-3 px-1">Registrar Consumo</label>
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-white/10 focus-within:border-indigo-500/50 transition-all shadow-inner">
-                          <input
-                            type="number"
-                            defaultValue={0}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                updateConsumed(item.id, parseFloat((e.target as HTMLInputElement).value));
-                                (e.target as HTMLInputElement).value = '0';
-                              }
-                            }}
-                            className="bg-transparent border-none focus:ring-0 text-3xl font-black text-slate-900 dark:text-white w-full text-right px-2"
-                          />
-                          <span className="text-slate-400 dark:text-slate-500 font-black pr-2 uppercase">{snapshot.unit}</span>
+                    <div className="w-full md:w-72 space-y-3 md:space-y-4 mt-4 md:mt-0">
+                      {hasInventoryData ? (
+                        <>
+                          <div className="relative">
+                            <label className="block text-xs font-black text-slate-500 dark:text-slate-300 uppercase tracking-[0.2em] mb-2 md:mb-3 px-1">Registrar Consumo</label>
+                            <div className="flex items-center gap-2 p-2 md:p-3 bg-slate-50 dark:bg-slate-950 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 focus-within:border-indigo-500/50 transition-all shadow-inner">
+                              <input
+                                type="number"
+                                value={consumedByItem[item.id] ?? ''}
+                                disabled={order.status === 'COMPLETED'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setConsumedByItem(prev => ({
+                                    ...prev,
+                                    [item.id]: val === '' ? '' : Number(val)
+                                  }));
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleConsumptionSubmit(item.id);
+                                  }
+                                }}
+                                placeholder="0"
+                                className="bg-transparent border-none focus:ring-0 text-2xl md:text-3xl font-black text-slate-900 dark:text-white w-full text-right px-1 md:px-2"
+                              />
+                              <span className="text-slate-400 dark:text-slate-500 font-black text-xs uppercase">{snapshot.unit}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleConsumptionSubmit(item.id)}
+                                disabled={order.status === 'COMPLETED' || !consumedByItem[item.id] || Number(consumedByItem[item.id]) <= 0}
+                                className="px-3 md:px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-300 disabled:text-slate-500 text-white text-xs md:text-sm font-bold rounded-lg md:rounded-xl transition-all active:scale-95"
+                              >
+                                Enviar
+                              </button>
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-2 text-right font-bold uppercase tracking-widest">
+                              {order.status === 'COMPLETED' 
+                                ? 'Orden cerrada' 
+                                : 'Enter o Enviar'}
+                            </p>
+                          </div>
+<div className={`flex items-center justify-between p-2 md:p-4 rounded-lg md:rounded-xl border ${
+                            variance > 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' :
+                            variance < 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400' :
+                                          'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'
+                          }`}>
+                          <div className="flex items-center gap-1.5 md:gap-2">
+                            {variance > 0 ? <CheckCircle2 className="w-3 md:w-4 h-3 md:h-4" /> : variance < 0 ? <AlertTriangle className="w-3 md:w-4 h-3 md:h-4" /> : <CheckCircle2 className="w-3 md:w-4 h-3 md:h-4" />}
+                            <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em]">
+                              {variance > 0 ? 'Sobrante' : variance < 0 ? 'Excedido' : 'Exacto'}
+                            </span>
+                          </div>
+                          <span className="font-mono font-black text-xs md:text-sm">{variance > 0 ? '+' : ''}{variance.toFixed(1)}</span>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-2 text-right font-bold uppercase tracking-widest italic">Presiona Enter para enviar</p>
-                      </div>
-                      <div className={`flex items-center justify-between p-4 rounded-xl border ${
-                        variance === 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' :
-                        variance < 0  ? 'bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-slate-400' :
-                                        'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
-                      }`}>
-                        <div className="flex items-center gap-2">
-                          {variance === 0 ? <CheckCircle2 className="w-4 h-4" /> : variance < 0 ? <Clock className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-                          <span className="text-[10px] font-black uppercase tracking-[0.15em]">
-                            {variance === 0 ? 'Correcto' : variance < 0 ? 'Pendiente' : 'Excedido'}
-                          </span>
+                        </>
+                      ) : (
+                        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium text-center">Sin inventario asociado</p>
                         </div>
-                        <span className="font-mono font-black text-sm">{variance > 0 ? '+' : ''}{variance.toFixed(1)}</span>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -434,9 +575,9 @@ export function ProductionExecutionPage() {
               const progress = totalFields > 0 ? Math.round((completedFields / totalFields) * 100) : 0;
 
               return (
-                <div key={item.id} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-[2rem] overflow-hidden shadow-xl shadow-slate-200/40 dark:shadow-none">
+                <div key={item.id} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-2xl md:rounded-[2rem] overflow-hidden shadow-lg md:shadow-xl shadow-slate-200/40 dark:shadow-none">
                   {/* Card header */}
-                  <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-transparent">
+                  <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-transparent">
                     <div className="flex items-center gap-3">
                       <div className="p-2.5 bg-indigo-600/10 dark:bg-indigo-500/10 rounded-xl border border-indigo-600/20 dark:border-indigo-500/20">
                         <FileEdit className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -450,10 +591,32 @@ export function ProductionExecutionPage() {
                         </p>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      {hasTemplate && saveStatus[item.id] === 'saving' && (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-widest">
+                          Guardando...
+                        </span>
+                      )}
+                      {hasTemplate && saveStatus[item.id] === 'saved' && (
+                        <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">
+                          <CheckCircle2 className="w-3 h-3" /> Guardado
+                        </span>
+                      )}
+                      {hasTemplate && saveStatus[item.id] === 'error' && (
+                        <span className="flex items-center gap-1 text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-widest">
+                          <AlertCircle className="w-3 h-3" /> Error
+                        </span>
+                      )}
+                      {order?.status === 'COMPLETED' && (
+                        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[8px] font-black uppercase tracking-widest rounded-lg">
+                          Solo lectura
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Form content */}
-                  <div className="p-6">
+                  <div className="p-4 md:p-6">
                     {!hasTemplate ? (
                       <div className="text-center py-8 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
                         <Settings2 className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
@@ -466,7 +629,7 @@ export function ProductionExecutionPage() {
                         templateSnapshot={template}
                         filledData={filledData}
                         onChange={(data) => handleItemChange(item.id, data)}
-                        disabled={reportSubmitting || reportSuccess}
+                        disabled={reportSubmitting || reportSuccess || order?.status === 'COMPLETED'}
                       />
                     )}
                   </div>

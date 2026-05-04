@@ -8,6 +8,26 @@ import { observability } from '../../../services/observability.service';
 export type SyncStatus = 'IDLE' | 'DIRTY' | 'SAVING' | 'SYNCED' | 'ERROR';
 
 /**
+ * Función única de normalización de detalles.
+ * Garantiza que la salida sea siempre un ServiceOrderDetailRequest válido.
+ * Entrada puede ser parcial (datos del backend pueden venir incompletos).
+ */
+const normalizeDetail = (d: Partial<ServiceOrderDetailRequest>): ServiceOrderDetailRequest => ({
+  id: d.id,
+  clientId: d.clientId,
+  productId: d.productId || '',
+  categoryId: d.categoryId || '',
+  quantity: Number(d.quantity ?? 0),
+  price: Number(d.price ?? 0),
+  inventoryItemId: d.inventoryItemId ?? undefined,
+  usedInventoryQuantity: d.usedInventoryQuantity ?? undefined,
+  attributes: (d.attributes ?? []).map(a => ({
+    attributeKey: a.attributeKey,
+    attributeValue: a.attributeValue ?? ''
+  }))
+});
+
+/**
  * Hook para gestionar las operaciones complejas sobre una orden de servicio.
  * Maneja reconciliación por clientId para evitar duplicidad en actualizaciones optimistas.
  */
@@ -33,30 +53,19 @@ export const useOrderOperations = () => {
   }, [syncStatus, details.length, version]);
 
   const reset = useCallback((order: ServiceOrder) => {
-    setDetails(prev => {
-      return order.details.map((d) => {
-        const localMatch = prev.find(p => (d.clientId && p.clientId === d.clientId) || p.id === d.id);
-        
-        return {
-          id: d.id,
-          clientId: d.clientId || localMatch?.clientId || d.id,
-          productId: d.productId,
-          categoryId: d.categoryId,
-          quantity: d.quantity,
-          price: d.price,
-          inventoryItemId: d.inventoryItemId,
-          usedInventoryQuantity: d.usedInventoryQuantity,
-          attributes: d.attributes.map(a => ({
-            attributeKey: a.attributeKey,
-            attributeValue: a.attributeValue
-          }))
-        };
-      });
-    });
+    // 🔍 DEBUG: detectar corrupción desde backend
+    console.log("RAW SERVICE ORDER DETAILS:", order.details);
+    console.log(
+      "INVALID DETAILS:",
+      (order.details ?? []).filter(d => !d || !d.inventoryItemId)
+    );
+
+    // Normalización única: entrada parcial → salida válida
+    setDetails((order.details ?? []).map(normalizeDetail));
     setVersion(order.version);
     setCustomerId(order.customerId);
     setIsConflict(false);
-    setSyncStatus('IDLE');
+    setSyncStatus('SYNCED');
   }, []);
 
   const addDetail = useCallback(() => {
@@ -137,18 +146,24 @@ export const useOrderOperations = () => {
     try {
       const versionToUse = forceVersion !== undefined ? forceVersion : version;
       
-      const sanitizedDetails = details.map(d => ({
-        ...d,
-        quantity: isNaN(Number(d.quantity)) ? 0 : Number(d.quantity),
-        price: isNaN(Number(d.price)) ? 0 : Number(d.price),
-        usedInventoryQuantity: d.usedInventoryQuantity !== undefined 
-          ? (isNaN(Number(d.usedInventoryQuantity)) ? 0 : Number(d.usedInventoryQuantity))
-          : undefined
-      }));
+      // Reconstrucción controlada del payload (sin spread para evitar estado contaminado)
+      const cleanedDetails = details
+        .filter((d): d is ServiceOrderDetailRequest => d != null)
+        .map(d => ({
+          id: d.id,
+          clientId: d.clientId || '',
+          productId: d.productId || '',
+          categoryId: d.categoryId || '',
+          quantity: Number(d.quantity ?? 0),
+          price: Number(d.price ?? 0),
+          inventoryItemId: d.inventoryItemId || undefined,
+          usedInventoryQuantity: d.usedInventoryQuantity || undefined,
+          attributes: d.attributes ?? []
+        }));
 
       // Pasamos el requestId explícitamente en los headers para que coincida con la telemetría
       const updated = await ordersService.update(orderId, { 
-        details: sanitizedDetails, 
+        details: cleanedDetails, 
         version: versionToUse,
         customerId: customerId || undefined
       }, { headers: { 'X-Request-ID': requestId } });

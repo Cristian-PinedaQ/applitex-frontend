@@ -49,44 +49,64 @@ export const ProductionService = {
 
   // --- Service Order Detail ---
   getServiceOrderInfo: async (productionOrderId: string): Promise<any> => {
-    const response = await api.get(`/production/${productionOrderId}/service-order`);
+    const response = await api.get(`/production-orders/${productionOrderId}/service-order`);
     return response.data;
   },
 
   // --- Órdenes de Producción ---
   getOrders: async (page = 0, size = 10): Promise<any> => {
-    const response = await api.get('/production', { params: { page, size } });
+    const response = await api.get('/production-orders', { params: { page, size } });
     return response.data;
   },
 
   getOrderById: async (id: string): Promise<any> => {
-    const response = await api.get(`/production/${id}`);
+    const response = await api.get(`/production-orders/${id}`);
     return response.data;
   },
 
   getLedger: async (id: string, page = 0, size = 5): Promise<any> => {
-    const response = await api.get(`/production/${id}/ledger`, { params: { page, size } });
+    const response = await api.get(`/production-orders/${id}/ledger`, { params: { page, size } });
     return response.data;
   },
 
   consumeItem: async (itemId: string, data: { amount: number; reason: string; idempotencyKey: string; correlationId?: string }) => {
-    const response = await api.post(`/production/items/${itemId}/consume`, data);
+    const response = await api.post(`/production-orders/items/${itemId}/consume`, data);
     return response.data;
   },
 
   completeProduction: async (id: string, data: { 
-    items: { id: string; filledData: Record<string, any> }[];
+    items: { id: string; values: Record<string, any> }[];
     signedBy: string;
     idempotencyKey: string;
     correlationId?: string;
   }) => {
-    const response = await api.post(`/production/${id}/complete`, data);
+    const response = await api.post(`/production-orders/${id}/complete`, data);
     return response.data;
   },
 
-  createOrder: async (data: { serviceOrderId: string; reference?: string }): Promise<any> => {
-  const response = await api.post('/production', data);
-  return response.data;
-}
-  
+createOrder: async (data: { serviceOrderId: string; reference?: string }): Promise<any> => {
+    const response = await api.post('/production-orders', data);
+    return response.data;
+  },
+
+  deleteOrder: async (id: string): Promise<void> => {
+    await api.delete(`/production-orders/${id}`);
+  },
+
+cancelOrder: async (id: string): Promise<void> => {
+    await api.patch(`/production-orders/${id}/cancel`);
+  },
+
+  saveItemReport: async (
+    orderId: string,
+    itemId: string,
+    values: Record<string, any>
+  ): Promise<any> => {
+    const response = await api.patch(
+      `/production-orders/${orderId}/items/${itemId}/report`,
+      values
+    );
+    return response.data;
+  },
+    
 };

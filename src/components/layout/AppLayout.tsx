@@ -114,7 +114,8 @@ return (
         <Drawer.Portal>
           <Drawer.Overlay className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-40 animate-in fade-in duration-300" />
           <Drawer.Content className="fixed bottom-0 left-0 top-0 w-[280px] z-50 outline-none flex">
-            {/* El Drawer gestiona su propio Safe Area para ser independiente */}
+            <Drawer.Title className="sr-only">Menú de navegación</Drawer.Title>
+            <Drawer.Description className="sr-only">Navegación principal de la aplicación</Drawer.Description>
             <div className="flex-1 h-full shadow-2xl animate-in slide-in-from-left duration-300 pb-safe pt-safe overflow-y-auto bg-white dark:bg-slate-900">
               <SidebarContent />
             </div>
